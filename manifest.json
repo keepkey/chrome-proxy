@@ -1,0 +1,22 @@
+{
+  "name": "keepkey-proxy",
+  "version": "0.0.1",
+  "description": "Provide a communication bridge between the KeepKey Wallet and a KeepKey device",
+  "manifest_version": 2,
+  "icons": { "128": "src/images/icon.png" },
+  "app": {
+    "background": {
+      "scripts": ["build/background.js"]
+    }
+  },
+  "minimum_chrome_version": "36.0.1941.0",
+  "permissions": [
+    "hid",
+    {
+      "usbDevices": [
+        { "vendorId": 11044, "productId": 1 },
+        { "vendorId": 21324, "productId": 1 }
+      ]
+    }
+  ]
+}
