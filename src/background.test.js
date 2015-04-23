@@ -1,8 +1,6 @@
 /* global client */
 /* jshint devel: true */
-///////////
-// TESTS //
-///////////
+
 (function () {
     "use strict";
 
@@ -14,8 +12,8 @@
      * @param  {String} fieldName  field name to prefix value in log
      * @return {Function}
      */
-    var log = function(fieldName) {
-        return function(value) {
+    var log = function (fieldName) {
+        return function (value) {
             console.log("%s: %s", fieldName, value);
         };
     };
@@ -25,10 +23,10 @@
      * @param  {String} format  format of the message to log
      * @return {Function}
      */
-    var logMessageFactory = function(format) {
+    var logMessageFactory = function (format) {
         format = format || "Received: %s";
 
-        return function(message) {
+        return function (message) {
             console.log(format, message);
         };
     };
@@ -37,7 +35,7 @@
      * Logs entropy and formmating the value in hex
      * @param  {ByteBuffer} entropy  entropy to log
      */
-    var logEntropy = function(entropy) {
+    var logEntropy = function (entropy) {
         console.log("Entropy: %s", entropy.toString('hex'));
     };
 
@@ -45,7 +43,7 @@
      * Logs a protocol buffer
      * @param  {ProtoBuf} protoBuf  protocol buffer to log
      */
-    var logProto = function(protoBuf) {
+    var logProto = function (protoBuf) {
         console.dir(protoBuf);
         return protoBuf;
     };

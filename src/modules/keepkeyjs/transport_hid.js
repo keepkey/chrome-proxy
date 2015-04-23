@@ -1,5 +1,5 @@
 /** START KEEPKEY LICENSE
- * 
+ *
  * This file is part of the KeepKeyJS project.
  *
  * Copyright (C) 2015 KeepKey, LLC.
@@ -20,292 +20,203 @@
  * END KEEPKEY LICENSE
  */
 
-;(function() {
+(function () {
 
-  'use strict';
+    'use strict';
 
-  ///////////////
-  // CONSTANTS //
-  ///////////////
+    var SEGMENT_SIZE = 63,
+        REPORT_ID = 63;
 
-  var SEGMENT_SIZE = 63,
-    REPORT_ID = 63;
+    var ByteBuffer = require('bytebuffer'),
+        transport = require('./transport.js'),
+        pollingEnabled = false,     // whether device polling is enabled or not
+        events = {                  // events that device polling fires
+            deviceConnected: null,
+            deviceDisconnected: null
+        };
 
-  /////////////
-  // REQUIRE //
-  /////////////
+    var devicePolling = function () {
 
-  var ByteBuffer = require('bytebuffer'),
-    transport = require('./transport.js'),
+        // only enumerate devices if there is a registered connect
+        // event.  the purpose of this polling to to facilitate
+        // device connect/disconnect events
 
-  //////////////////////////////
-  // PRIVATE STATIC VARIABLES //
-  //////////////////////////////
+        if (pollingEnabled) {
+            if (typeof events.deviceConnected === 'function') {
+                /* global chrome */
+                chrome.hid.getDevices({}, function (devices) {
+                    var i = 0,
+                        max = devices.length,
+                        deviceAlive = {},
+                        currentDevice = null,
+                        currentDeviceId = 0,
+                        connectedDevices = transport.getDeviceIds();
 
-    pollingEnabled = false,     // whether device polling is enabled or not
-    events = {                  // events that device polling fires
-      deviceConnected: null,
-      deviceDisconnected: null
-    };
+                    // detect device connects
+                    for (; i < max; i += 1) {
+                        currentDevice = devices[i];
+                        currentDeviceId = currentDevice.deviceId;
+                        deviceAlive[currentDeviceId] = true;
 
-  ////////////////////////////
-  // PRIVATE STATIC METHODS //
-  ////////////////////////////
+                        if (!transport.hasDeviceId(currentDeviceId)) {
+                            module.exports.create(devices[i]);
+                        }
+                    }
 
-  /**
-   * Polls for device connections and disconnections
-   */
-  var devicePolling = function() {
+                    // detect device disconnects
+                    for (i = 0, max = connectedDevices.length; i < max; i += 1) {
+                        currentDeviceId = connectedDevices[i];
 
-    // only enumerate devices if there is a registered connect
-    // event.  the purpose of this polling to to facilitate
-    // device connect/disconnect events
+                        if (!deviceAlive[currentDeviceId]) {
+                            if (typeof events.deviceDisconnected === 'function') {
+                                events.deviceDisconnected(transport.find(currentDeviceId));
+                            }
 
-    if(pollingEnabled) {
-      if (typeof events.deviceConnected === 'function') {
-        /* global chrome */
-        chrome.hid.getDevices({}, function(devices) {
-          var i = 0,
-            max = devices.length,
-            deviceAlive = {},
-            currentDevice = null,
-            currentDeviceId = 0,
-            connectedDevices = transport.getDeviceIds();
-
-          // detect device connects
-          for (; i < max; i += 1) {
-            currentDevice = devices[i];
-            currentDeviceId = currentDevice.deviceId;
-            deviceAlive[currentDeviceId] = true;
-
-            if(!transport.hasDeviceId(currentDeviceId)) {
-              module.exports.create(devices[i]);
+                            transport.remove(currentDeviceId);
+                        }
+                    }
+                });
             }
-          }
 
-          // detect device disconnects
-          for(i = 0, max = connectedDevices.length; i < max; i += 1) {
-            currentDeviceId = connectedDevices[i];
-
-            if(!deviceAlive[currentDeviceId]){
-              if (typeof events.deviceDisconnected === 'function') {
-                events.deviceDisconnected(transport.find(currentDeviceId));
-              }
-
-              transport.remove(currentDeviceId);
-            }
-          }
-        });
-      }
-
-      setTimeout(devicePolling, 1000);
-    }
-  };
-
-  ///////////////////////////
-  // PUBLIC STATIC METHODS //
-  ///////////////////////////
-
-  /**
-   * Create a new HID Transport
-   * @param  {Object} hidDevice   Object contain HID device information
-   * @return {Transport}
-   */
-  module.exports.create = function(hidDevice) {
-
-    ////////////////////////
-     // PRIVATE VARIABLES //
-    ////////////////////////
-
-    var hidDeviceId = hidDevice.deviceId,     // HID device id
-      that = transport.create(hidDeviceId),   // create parent transport
-      connection = 0;                         // connection id used for writing and reading from device
-
-    /////////////////////
-    // PRIVATE METHODS //
-    /////////////////////
-
-    /**
-     * Opens a connection to the device
-     */
-    var open = function() {
-      /* global chrome */
-      chrome.hid.connect(hidDeviceId, function(connectInfo) {
-        if (!connectInfo) {
-          throw {
-            name: 'Error',
-            message: 'Unable to connect to device.'
-          };
+            setTimeout(devicePolling, 1000);
         }
-        connection = connectInfo.connectionId;
-
-        // fire deviceConnected event
-        events.deviceConnected(that);
-      });
     };
 
-    /**
-     * Writes to HID device
-     * @param  {ByteBuffer} txSegmentBB   Segment to write
-     * @return {Promise}
-     */
-    var writeToHid = function(txSegmentBB) {
-      return new Promise(function(resolve, reject) {
-        try {
-          /* global chrome */
-          chrome.hid.send(
-            connection, 
-            SEGMENT_SIZE,
-            txSegmentBB.toArrayBuffer(),
-            resolve);
-        } catch(error) {
-          reject(error);
-        }
-      });
-    };
+    module.exports.create = function (hidDevice) {
 
-    /**
-     * Read from HID device
-     * @param  {Object} txMsg   Object that holds message header and buffer
-     * @return {Promise}
-     */
-    var readFromHid = function(rxMsg) {
-      return new Promise(function(resolve, reject) {
-        /* global chrome */
-        chrome.hid.receive(connection, function(reportId, rxMsgAB) {
-          if(reportId === REPORT_ID) {
-            if(typeof rxMsg === 'undefined') {
-              rxMsg = rxMsg || {
-                header: null,
-                bufferBB: ByteBuffer.wrap(rxMsgAB)
-              };
-            } else {
-              rxMsg.bufferBB = ByteBuffer.concat([rxMsg.bufferBB, ByteBuffer.wrap(rxMsgAB)]);
-            }
+        var hidDeviceId = hidDevice.deviceId,     // HID device id
+            that = transport.create(hidDeviceId),   // create parent transport
+            connection = 0;                         // connection id used for writing and reading from device
 
-            resolve(rxMsg);
-          } else {
-            reject({
-              name: 'Error',
-              message: 'Unexpected report ID.'
+        var open = function () {
+            /* global chrome */
+            chrome.hid.connect(hidDeviceId, function (connectInfo) {
+                if (!connectInfo) {
+                    throw {
+                        name: 'Error',
+                        message: 'Unable to connect to device.'
+                    };
+                }
+                connection = connectInfo.connectionId;
+
+                // fire deviceConnected event
+                events.deviceConnected(that);
             });
-          }
-        });
-      });
-    };
+        };
 
-    ///////////////////////
-    // PROTECTED METHODS //
-    ///////////////////////
+        var writeToHid = function (txSegmentBB) {
+            return new Promise(function (resolve, reject) {
+                try {
+                    /* global chrome */
+                    chrome.hid.send(
+                        connection,
+                        SEGMENT_SIZE,
+                        txSegmentBB.toArrayBuffer(),
+                        resolve);
+                } catch (error) {
+                    reject(error);
+                }
+            });
+        };
 
-    /**
-     * Breaks up ByteBuffer message into proper segment sizes for HID
-     * @param  {ByteBuffer} txMsgBB   message to be written
-     * @return {Promise}
-     */
-    that._write = function(txMsgBB) {
-      var i = 0,
-        max = txMsgBB.limit,
-        txSegmentAB = null,
-        txSegmentBB = null,
-        writePromise = Promise.resolve();
+        var readFromHid = function (rxMsg) {
+            return new Promise(function (resolve, reject) {
+                /* global chrome */
+                chrome.hid.receive(connection, function (reportId, rxMsgAB) {
+                    if (reportId === REPORT_ID) {
+                        if (typeof rxMsg === 'undefined') {
+                            rxMsg = rxMsg || {
+                                    header: null,
+                                    bufferBB: ByteBuffer.wrap(rxMsgAB)
+                                };
+                        } else {
+                            rxMsg.bufferBB = ByteBuffer.concat([rxMsg.bufferBB, ByteBuffer.wrap(rxMsgAB)]);
+                        }
 
-      // break frame into segments
-      for (; i < max; i += SEGMENT_SIZE) {
-        txSegmentAB = txMsgBB.toArrayBuffer().slice(i, i + SEGMENT_SIZE);
-        txSegmentBB = ByteBuffer.concat([txSegmentAB, ByteBuffer.wrap(new Array(SEGMENT_SIZE - txSegmentAB.byteLength + 1).join('\0'))]);
+                        resolve(rxMsg);
+                    } else {
+                        reject({
+                            name: 'Error',
+                            message: 'Unexpected report ID.'
+                        });
+                    }
+                });
+            });
+        };
 
-        writePromise = writePromise
-          .then(Promise.resolve(writeToHid(txSegmentBB)));
-      }
+        that._write = function (txMsgBB) {
+            var i = 0,
+                max = txMsgBB.limit,
+                txSegmentAB = null,
+                txSegmentBB = null,
+                writePromise = Promise.resolve();
 
-      return writePromise;
-    };
+            // break frame into segments
+            for (; i < max; i += SEGMENT_SIZE) {
+                txSegmentAB = txMsgBB.toArrayBuffer().slice(i, i + SEGMENT_SIZE);
+                txSegmentBB = ByteBuffer.concat([txSegmentAB, ByteBuffer.wrap(new Array(SEGMENT_SIZE - txSegmentAB.byteLength + 1).join('\0'))]);
 
-    /**
-     * Reads each segment from HID device and buffers them
-     * @return {Promise}
-     */
-    that._read = function() {
-      return readFromHid()
-        .then(function(rxMsg) {  // first segment
-          var i = 0, max = 0;
-
-          // parse header and then remove it from buffer
-          rxMsg.header = transport.parseMsgHeader(rxMsg.bufferBB);
-          rxMsg.bufferBB = 
-            ByteBuffer.wrap(rxMsg.bufferBB.toArrayBuffer().slice(transport.MSG_HEADER_START.length + transport.MSG_HEADER_LENGTH));
-
-          // if message length is longer than what we have buffered, create promises
-          // for each remaining segment
-          if(rxMsg.header.msgLength > rxMsg.bufferBB.limit){
-            var remainingCount = Math.floor((rxMsg.header.msgLength - rxMsg.bufferBB.limit) / SEGMENT_SIZE),
-              readSegments = readFromHid(rxMsg);
-
-            for(max = remainingCount; i < max; i += 1) {
-              readSegments = readSegments.then(readFromHid);
+                writePromise = writePromise
+                    .then(Promise.resolve(writeToHid(txSegmentBB)));
             }
 
-            return readSegments;  // return promises for remaining segments
-          } else {
-            return rxMsg;      // no more segments so just return this one segment
-          }
-        });
+            return writePromise;
+        };
+
+        that._read = function () {
+            return readFromHid()
+                .then(function (rxMsg) {  // first segment
+                    var i = 0, max = 0;
+
+                    // parse header and then remove it from buffer
+                    rxMsg.header = transport.parseMsgHeader(rxMsg.bufferBB);
+                    rxMsg.bufferBB =
+                        ByteBuffer.wrap(rxMsg.bufferBB.toArrayBuffer().slice(transport.MSG_HEADER_START.length + transport.MSG_HEADER_LENGTH));
+
+                    // if message length is longer than what we have buffered, create promises
+                    // for each remaining segment
+                    if (rxMsg.header.msgLength > rxMsg.bufferBB.limit) {
+                        var remainingCount = Math.floor((rxMsg.header.msgLength - rxMsg.bufferBB.limit) / SEGMENT_SIZE),
+                            readSegments = readFromHid(rxMsg);
+
+                        for (max = remainingCount; i < max; i += 1) {
+                            readSegments = readSegments.then(readFromHid);
+                        }
+
+                        return readSegments;  // return promises for remaining segments
+                    } else {
+                        return rxMsg;      // no more segments so just return this one segment
+                    }
+                });
+        };
+
+        that.getDeviceInfo = function () {
+            return {
+                vendorId: hidDevice.vendorId,
+                productId: hidDevice.productId
+            };
+        };
+
+        open();
+
+        return that;
     };
 
-    ////////////////////
-    // PUBLIC METHODS //
-    ////////////////////
+    module.exports.startListener = function () {
+        pollingEnabled = true;
+        devicePolling();
+    };
 
-    /**
-     * Returns vendor id and product id of device
-     * @return {Object}
-     */
-  	that.getDeviceInfo = function() {
-      return {
-        vendorId: hidDevice.vendorId,
-        productId: hidDevice.productId
-      };
-  	};
+    module.exports.stopListener = function () {
+        pollingEnabled = false;
+    };
 
-    //////////
-    // INIT //
-    //////////
+    module.exports.onDeviceConnected = function (callback) {
+        events.deviceConnected = callback;
+    };
 
-    open();
-
-  	return that; 
-  };
-
-  /**
-   * Starts polling for connected devices
-   */
-  module.exports.startListener = function() {
-    pollingEnabled = true;
-    devicePolling();
-  };
-
-  /**
-   * Stops polling for connected devices
-   */
-  module.exports.stopListener = function() {
-    pollingEnabled = false;
-  };
-
-  /**
-   * Register a callback when device is connected
-   * @param  {Function} callback  callback function to be called whe device is connected
-   */
-  module.exports.onDeviceConnected = function(callback) {
-      events.deviceConnected = callback;
-  };
-
-  /**
-   * Register a callback when device is disconnected
-   * @param  {Function} callback  callback function to be called whe device is disconnected
-   */
-  module.exports.onDeviceDisconnected = function(callback) {
-      events.deviceDisconnected = callback;
-  };
+    module.exports.onDeviceDisconnected = function (callback) {
+        events.deviceDisconnected = callback;
+    };
 
 })();

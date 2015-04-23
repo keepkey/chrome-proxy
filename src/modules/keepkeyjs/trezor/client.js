@@ -1,5 +1,5 @@
 /** START KEEPKEY LICENSE
- * 
+ *
  * This file is part of the KeepKeyJS project.
  *
  * Copyright (C) 2015 KeepKey, LLC.
@@ -19,54 +19,28 @@
  *
  * END KEEPKEY LICENSE
  */
+(function () {
+    'use strict';
 
-;(function() {
+    var client = require('../client.js'),
+        protoBuf = require('./messages_pb.js');
 
-  'use strict';
+    module.exports.create = function (transport) {
 
-  /////////////
-  // REQUIRE //
-  /////////////
+        var that = null;
 
-  var client = require('../client.js'),
-    protoBuf = require('./messages_pb.js');
+        // setup transport with correct message map
+        transport.setMessageMap(client.TREZOR, protoBuf);
 
-  ///////////////////////////
-  // PUBLIC STATIC METHODS //
-  ///////////////////////////
+        // create parent client
+        that = client.create(transport, protoBuf);
 
-  module.exports.create = function(transport) {
+        that.getDeviceType = function () {
+            return client.TREZOR;
+        };
 
-    var that = null;
-
-    // setup transport with correct message map
-    transport.setMessageMap(client.TREZOR, protoBuf);      
-
-    // create parent client
-    that = client.create(transport, protoBuf);
-
-    ///////////////////////
-    // PRIVATE VARIABLES //
-    ///////////////////////
-
-    /////////////////////
-    // PRIVATE METHODS //
-    /////////////////////
-
-    ////////////////////
-    // PUBLIC METHODS //
-    ////////////////////
-
-    /**
-     * Returns device type
-     * @return {String}
-     */
-    that.getDeviceType = function() {
-      return client.TREZOR;
+        // return new client
+        return that;
     };
-
-    // return new client
-    return that;
-  };
 
 })();
