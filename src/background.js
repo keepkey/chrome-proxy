@@ -1,3 +1,4 @@
+/* globals chrome */
 /* jshint devel: true */
 
 /** START KEEPKEY LICENSE
@@ -25,24 +26,27 @@
 (function () {
     "use strict";
 
-    var clientModule = require('./modules/keepkeyjs/client.js'),
-        transportHid = require('./modules/keepkeyjs/transport_hid.js'),
-        clientPool = [];
+    var clientModule = require('./modules/keepkeyjs/client.js');
+    var transportHid = require('./modules/keepkeyjs/transport_hid.js');
+    var clientPool = [];
+    var keepKeyWalletId = "lianbgbgdfpjeohdccgmkkkpboccihdo";
 
-    /**
-     * Creates a client when a device is connected
-     * @param  {Transport}  transport   connected transport used to create new client
-     */
     var handleDeviceConnected = function (transport) {
         var client = clientModule.factory(transport);
         clientPool.push(client);
+
+        chrome.runtime.sendMessage(
+            keepKeyWalletId,
+            {
+                messageType: "connected",
+                deviceType: client.getDeviceType(),
+                deviceId: transport.getDeviceId()
+            }
+        );
+
         console.log("%s connected: %d", client.getDeviceType(), transport.getDeviceId());
     };
 
-    /**
-     * Finds a client by it's transport and removes it from client pool.
-     * @param  {Transport}  transport   a disconnected transport to use to find client
-     */
     var handleDeviceDisconnected = function (transport) {
         var disconnectedClient = clientModule.find(transport),
             i = 0,
@@ -56,11 +60,42 @@
 
         clientModule.remove(transport);
 
+        chrome.runtime.sendMessage(
+            keepKeyWalletId,
+            {
+                messageType: "disconnected",
+                deviceType: disconnectedClient.getDeviceType(),
+                deviceId: transport.getDeviceId()
+            }
+        );
+
         console.log("%s Disconnected: %d", disconnectedClient.getDeviceType(), transport.getDeviceId());
     };
 
     transportHid.onDeviceConnected(handleDeviceConnected);
     transportHid.onDeviceDisconnected(handleDeviceDisconnected);
     transportHid.startListener();
+
+    chrome.runtime.onMessageExternal.addListener(
+        function (request, sender, sendResponse) {
+            console.log("External message:", request.messageType);
+            if (sender.id === keepKeyWalletId) {
+                switch (request.messageType) {
+                    case 'deviceReady':
+                        sendResponse({
+                            messageType: "deviceReadyResponse",
+                            result: !!clientPool.length
+                        });
+                        break;
+                }
+            } else {
+                sendResponse({
+                    messageType: "Error",
+                    result: "Unknown sender " + sender.id + ", message rejected"
+                });
+            }
+        }
+    );
+
 
 })();
