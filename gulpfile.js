@@ -5,15 +5,31 @@ var jshint = require('gulp-jshint');
 var packageJSON  = require('./package');
 var bump = require('gulp-bump');
 var zip = require('gulp-zip');
+var args = require('yargs').argv;
+var yaml = require('gulp-yaml');
+var rename = require('gulp-rename');
+var del = require('del');
 
 var jshintConfig = packageJSON.jshintConfig;
 var versionedFiles = ['manifest.json', 'package.json'];
 
 jshintConfig.lookup = false;
 
-gulp.task('build', ['lint', 'browserify', 'copyAssets', 'copyManifest', 'zip']);
+gulp.task('build', ['lint', 'copyAssets', 'copyManifest', 'buildConfig', 'browserify', 'zip']);
 
-gulp.task('browserify', function() {
+gulp.task('clean', function (cb) {
+    del(['dist'], cb);
+});
+
+gulp.task('buildConfig', function() {
+    var environment = args.environment || 'local';
+    return gulp.src('./config/' + environment + '.yaml')
+        .pipe(yaml())
+        .pipe(rename('config.json'))
+        .pipe(gulp.dest('./dist/'));
+});
+
+gulp.task('browserify', ['lint', 'buildConfig'], function() {
     return browserify('./src/background.js')
         .bundle()
         .pipe(source('background.js'))
@@ -53,7 +69,7 @@ gulp.task('bumpMajor', function () {
         .pipe(gulp.dest('./'));
 });
 
-gulp.task('zip', function() {
+gulp.task('zip', ['browserify', 'copyAssets', 'copyManifest', 'buildConfig'], function() {
     return gulp.src('dist/**/*')
         .pipe(zip('keepkey-proxy-test.zip'))
         .pipe(gulp.dest('.'));

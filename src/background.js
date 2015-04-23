@@ -29,7 +29,8 @@
     var clientModule = require('./modules/keepkeyjs/client.js');
     var transportHid = require('./modules/keepkeyjs/transport_hid.js');
     var clientPool = [];
-    var keepKeyWalletId = "lianbgbgdfpjeohdccgmkkkpboccihdo";
+    var config = require('../dist/config.json');
+    var keepKeyWalletId = config.keepkeyWallet.applicationId;
 
     var handleDeviceConnected = function (transport) {
         var client = clientModule.factory(transport);
