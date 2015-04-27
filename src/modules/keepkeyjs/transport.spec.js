@@ -1,8 +1,5 @@
-(function () {
-
-    'use strict';
-
-    var assert = require('assert'),
+describe('transport', function() {
+    var assert = require('chai').assert,
         transport = require('./transport.js'),
         sampleDeviceId = 34;
 
@@ -56,9 +53,14 @@
 
         describe('.remove()', function () {
             it('should remove a transport by device id', function () {
+                assert.equal(transport.getDeviceIds().length, 1, 'one devices initially');
+
                 transport.create(sampleDeviceId + 1);
+                assert.equal(transport.getDeviceIds().length, 2, 'device added');
+
                 transport.remove(sampleDeviceId + 1);
                 assert(transport.hasDeviceId(sampleDeviceId + 1) === false);
+                assert.equal(transport.getDeviceIds().length, 1, 'device removed');
             });
         });
     });
@@ -79,4 +81,4 @@
         });
     });
 
-})();
+});

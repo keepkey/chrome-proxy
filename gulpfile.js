@@ -9,6 +9,7 @@ var args = require('yargs').argv;
 var yaml = require('gulp-yaml');
 var rename = require('gulp-rename');
 var del = require('del');
+var mocha = require('gulp-mocha');
 
 var jshintConfig = packageJSON.jshintConfig;
 var versionedFiles = ['manifest.json', 'package.json'];
@@ -18,22 +19,21 @@ jshintConfig.lookup = false;
 gulp.task('build', ['lint', 'copyAssets', 'copyManifest', 'buildConfig', 'browserify', 'zip']);
 
 gulp.task('clean', function (cb) {
-    del(['dist'], cb);
+    del(['dist', '*.zip'], cb);
 });
 
 gulp.task('buildConfig', function() {
     var environment = args.environment || 'local';
-    return gulp.src('./config/' + environment + '.yaml')
-        .pipe(yaml())
+    return gulp.src('config/' + environment + '.json')
         .pipe(rename('config.json'))
-        .pipe(gulp.dest('./dist/'));
+        .pipe(gulp.dest('dist'));
 });
 
 gulp.task('browserify', ['lint', 'buildConfig'], function() {
     return browserify('./src/background.js')
         .bundle()
         .pipe(source('background.js'))
-        .pipe(gulp.dest('./dist/'));
+        .pipe(gulp.dest('dist'));
 });
 
 gulp.task('lint', function() {
@@ -43,7 +43,7 @@ gulp.task('lint', function() {
 });
 
 gulp.task('watch', function() {
-    return gulp.watch(['src/**/*.js', 'gulpfile.js', 'package.json'], ['build']);
+    return gulp.watch(['src/**/*', 'gulpfile.js', 'package.json', 'manifest.json', 'config'], ['build']);
 });
 
 gulp.task('copyAssets', function() {
@@ -80,4 +80,8 @@ gulp.task('copyManifest', function() {
         .pipe(gulp.dest('dist'));
 });
 
+gulp.task('test', function () {
+    return gulp.src('src/**/*.spec.js', {read: false})
+        .pipe(mocha());
+});
 
