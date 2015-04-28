@@ -94,3 +94,20 @@ chrome.runtime.onMessageExternal.addListener(
         }
     }
 );
+
+chrome.runtime.sendMessage(
+    keepKeyWalletId,
+    {
+        messageType: "ping"
+    },
+    function(response) {
+        if (response === undefined) {
+            chrome.app.window.create('InstallWallet.html',
+                {
+                    id: "messagingInstallWallet",
+                    innerBounds: {width: 800, height: 500}
+                });
+
+        }
+    }
+);

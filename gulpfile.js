@@ -10,20 +10,21 @@ var yaml = require('gulp-yaml');
 var rename = require('gulp-rename');
 var del = require('del');
 var mocha = require('gulp-mocha');
+var replace = require('gulp-replace');
 
 var jshintConfig = packageJSON.jshintConfig;
 var versionedFiles = ['manifest.json', 'package.json'];
+var environment = args.environment || 'local';
 
 jshintConfig.lookup = false;
 
-gulp.task('build', ['lint', 'copyAssets', 'copyManifest', 'buildConfig', 'browserify', 'zip']);
+gulp.task('build', ['lint', 'copyAssets', 'copyManifest', 'buildConfig', 'copyHtml', 'browserify', 'zip']);
 
 gulp.task('clean', function (cb) {
     del(['dist', '*.zip'], cb);
 });
 
 gulp.task('buildConfig', function() {
-    var environment = args.environment || 'local';
     return gulp.src('config/' + environment + '.json')
         .pipe(rename('config.json'))
         .pipe(gulp.dest('dist'));
@@ -77,6 +78,14 @@ gulp.task('zip', ['browserify', 'copyAssets', 'copyManifest', 'buildConfig'], fu
 
 gulp.task('copyManifest', function() {
     return gulp.src('manifest.json')
+        .pipe(gulp.dest('dist'));
+});
+
+gulp.task('copyHtml', ['buildConfig'], function() {
+    var config = require('./config/' + environment + '.json');
+
+    return gulp.src('src/*.html')
+        .pipe(replace(/\{\{WalletAppId\}\}/g, config.keepkeyWallet.applicationId))
         .pipe(gulp.dest('dist'));
 });
 

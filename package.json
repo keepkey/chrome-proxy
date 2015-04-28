@@ -1,6 +1,6 @@
 {
   "name": "keepkey-proxy",
-  "version": "0.0.3",
+  "version": "0.0.4",
   "description": "A communication bridge between the KeepKey Wallet and a KeepKey device",
   "main": "index.js",
   "scripts": {
@@ -21,6 +21,7 @@
     "gulp-jshint": "^1.10.0",
     "gulp-mocha": "^2.0.1",
     "gulp-rename": "^1.2.2",
+    "gulp-replace": "^0.5.3",
     "gulp-yaml": "^0.2.4",
     "gulp-zip": "^3.0.2",
     "jshint-stylish": "^1.0.1",
