@@ -11,6 +11,7 @@ var rename = require('gulp-rename');
 var del = require('del');
 var mocha = require('gulp-mocha');
 var replace = require('gulp-replace');
+var pbjs = require('gulp-pbjs');
 
 var jshintConfig = packageJSON.jshintConfig;
 var versionedFiles = ['manifest.json', 'package.json'];
@@ -94,3 +95,8 @@ gulp.task('test', function () {
         .pipe(mocha());
 });
 
+gulp.task('protocolBuffers', function() {
+    return gulp.src('src/modules/keepkeyjs/keepkey/protob/messages.proto')
+        .pipe(pbjs())
+        .pipe(gulp.dest('tmp'));
+});
