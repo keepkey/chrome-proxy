@@ -54,5 +54,8 @@
     "globals": {
       "Promise": false
     }
+  },
+  "dependencies": {
+    "protobufjs": "^4.0.0-b2"
   }
 }

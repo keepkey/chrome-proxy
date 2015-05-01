@@ -19,10 +19,10 @@ var environment = args.environment || 'local';
 
 jshintConfig.lookup = false;
 
-gulp.task('build', ['lint', 'copyAssets', 'copyManifest', 'buildConfig', 'copyHtml', 'browserify', 'zip']);
+gulp.task('build', ['lint', 'copyAssets', 'copyManifest', 'buildConfig', 'copyHtml', 'protocolBuffers', 'browserify', 'zip']);
 
 gulp.task('clean', function (cb) {
-    del(['dist', '*.zip'], cb);
+    del(['dist', '*.zip', 'tmp'], cb);
 });
 
 gulp.task('buildConfig', function() {
@@ -95,8 +95,16 @@ gulp.task('test', function () {
         .pipe(mocha());
 });
 
-gulp.task('protocolBuffers', function() {
+gulp.task('protocolBuffersKeepKey', function() {
     return gulp.src('src/modules/keepkeyjs/keepkey/protob/messages.proto')
         .pipe(pbjs())
-        .pipe(gulp.dest('tmp'));
+        .pipe(gulp.dest('tmp/keepkey'));
 });
+
+gulp.task('protocolBuffersTrezor', function() {
+    return gulp.src('src/modules/keepkeyjs/trezor/protob/messages.proto')
+        .pipe(pbjs())
+        .pipe(gulp.dest('tmp/trezor'));
+});
+
+gulp.task('protocolBuffers', ['protocolBuffersKeepKey', 'protocolBuffersTrezor']);

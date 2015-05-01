@@ -24,7 +24,7 @@
     'use strict';
 
     var client = require('../client.js'),
-        protoBuf = require('./messages_pb.js');
+        protoBuf = require('../../../../tmp/keepkey/messages.js');
 
     module.exports.create = function (transport) {
 
