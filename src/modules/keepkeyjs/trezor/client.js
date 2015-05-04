@@ -25,21 +25,18 @@
     var client = require('../client.js'),
         protoBuf = require('../../../../tmp/keepkey/messages.js');
 
+    module.exports.getProtoBuf = function () {
+        return protoBuf;
+    };
+
     module.exports.create = function (transport) {
 
-        var that = null;
-
-        // setup transport with correct message map
-        transport.setMessageMap(client.TREZOR, protoBuf);
-
-        // create parent client
-        that = client.create(transport, protoBuf);
+        var that = client.create(transport, protoBuf);  // create parent client
 
         that.getDeviceType = function () {
             return client.TREZOR;
         };
 
-        // return new client
         return that;
     };
 

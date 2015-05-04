@@ -23,17 +23,14 @@
 
     'use strict';
 
-    /////////////
-    // REQUIRE //
-    /////////////
-
     var ByteBuffer = require('bytebuffer'),
+        extend = require('extend-object'),
         assert = require('assert'),
         uint32 = require('uint32'),
-        bip39 = require('bip39'),
-        sprintf = require("sprintf-js").sprintf;
+    // bip39 = require('bip39'),
+        sprintf = require("sprintf-js").sprintf,
 
-    var KEEPKEY = 'KEEPKEY',
+        KEEPKEY = 'KEEPKEY',
         TREZOR = 'TREZOR',
         DEVICES = require('./transport.js').DEVICES,
         PRIME_DERIVATION_FLAG = 0x80000000;
@@ -41,9 +38,18 @@
     module.exports.KEEPKEY = KEEPKEY;
     module.exports.TREZOR = TREZOR;
 
+    function defaultMixin() {
+        var that = {};  // create default ui mixin
+
+        that.onButtonRequest = function () {
+            return Promise.resolve(new (this.getProtoBuf().ButtonAck)());
+        };
+
+        return that;
+    }
+
     var clients = {},    // client pool
-        clientTypes = {},  // client types used for client creation by type
-        decorators = {};   // decorators to check and format responses from device
+        clientTypes = {};  // client types used for client creation by type
 
     clientTypes[KEEPKEY] = require('./keepkey/client.js');
     clientTypes[TREZOR] = require('./trezor/client.js');
@@ -62,14 +68,24 @@
 
     function clientMaker(transport, protoBuf) {
 
-        var that = {},                          // new client object
-            msgHandlers = {},                     // message handlers
-            commands = {},                        // seperate object holds commands so they are private to client consumer
-            clientPromise = Promise.resolve(),    // makes sure that commands against device look synchronous
-            features = {};                        // device features
+        var that = {},                            // new client object
+            featuresPromise = Promise.resolve(),    // device features
+            deviceInUse = false,                    // is device currently in use?
+            decorators = {};                        // decorators to check and format responses from device
 
-        msgHandlers.ButtonRequest = function () {
-            return new protoBuf.ButtonAck();
+        that._setDeviceInUse = function (status) {
+            return new Promise(function (resolve) {
+                if (status) {
+                    assert(!deviceInUse);
+                }
+
+                deviceInUse = status;
+                resolve(deviceInUse);
+            });
+        };
+
+        that._getDecorators = function () {
+            return decorators;
         };
 
         that.getDeviceType = function () {
@@ -80,19 +96,18 @@
         };
 
         that.getFeatures = function () {
-            clientPromise = clientPromise
-                .then(function () {
-                    return features;
-                });
-            return clientPromise;
+            return featuresPromise;
         };
 
         that.getDeviceId = function () {
-            clientPromise = clientPromise
-                .then(function () {
+            return featuresPromise
+                .then(function (features) {
                     return features.device_id;
                 });
-            return clientPromise;
+        };
+
+        that.getProtoBuf = function () {
+            return protoBuf;
         };
 
         that.call = function (txProtoMsg) {
@@ -101,8 +116,11 @@
                 .then(function (rxProtoMsg) {
                     var handler = rxProtoMsg.$type.name;
 
-                    if (msgHandlers.hasOwnProperty(handler)) {
-                        return that.call(msgHandlers[handler](rxProtoMsg));
+                    if (that.hasOwnProperty('on' + handler)) {
+                        return that['on' + handler](rxProtoMsg)
+                            .then(function (handlerTxProtoMsg) {
+                                return that.call(handlerTxProtoMsg);
+                            });
                     } else {
                         return rxProtoMsg;
                     }
@@ -114,93 +132,67 @@
                 .then(transport.read);
         };
 
-        that.ready = function () {
-            var revealedCommands = {},
-                availableCommand = null,
-                reveal = function (command) {    // wrapper around command that enforces promise
-                    return function (args) {
-                        var commandPromise = clientPromise
-                            .then(commands[command].bind(this, args));
-
-                        // reset client promise to last run promise
-                        clientPromise = commandPromise;
-
-                        // determine if features need to be refreshed after command run
-                        // and if so reset client promise to new features promise
-                        if (commands[command].hasOwnProperty('refreshFeatures') && commands[command].refreshFeatures) {
-                            clientPromise = clientPromise
-                                .then(commands.initialize);
-                        }
-
-                        // return command promise and not client promise, since commitments could have been added
-                        // to the client promise
-                        return commandPromise;
-                    };
-                };
-
-            // loop through available comands and reveal them
-            for (availableCommand in commands) {
-                if (commands.hasOwnProperty(availableCommand)) {
-                    revealedCommands[availableCommand] = reveal(availableCommand);
-                }
-            }
-
-            // cache revealed commands by rewriting ready
-            that.ready = function () {
-                return revealedCommands;
-            };
-
-            return revealedCommands;
+        that.cancel = function () {
+            return transport.write(new protoBuf.Cancel())
+                .then(decorators.deviceReady);
         };
 
-        commands.initialize = function () {
-            return that.call(new protoBuf.Initialize())
-                .then(decorators.expect('Features'))
-                .then(function (rxProtoMsg) {
-                    features = rxProtoMsg;
-                    return rxProtoMsg;
-                });
+        that.initialize = function () {
+            var initializePromise = that._setDeviceInUse(true)
+                .then(that.call.bind(this, new protoBuf.Initialize()))
+                .then(decorators.deviceReady)
+                .then(decorators.expect('Features'));
+
+            featuresPromise = initializePromise;
+
+            return initializePromise;
         };
 
-        commands.getPublicNode = function (address_n) {
-            return that.call(new protoBuf.GetPublicKey(convertPrime(address_n)))
+        that.getPublicNode = function (address_n) {
+            return that._setDeviceInUse(true)
+                .then(that.call.bind(this, new protoBuf.GetPublicKey(convertPrime(address_n))))
+                .then(decorators.deviceReady)
                 .then(decorators.expect('PublicKey'));
         };
 
-        commands.getAddress = function (args) {
+        that.getAddress = function (args) {
             args = args || {};
             args.address_n = args.address_n || [];
             args.coin_name = args.coin_name || null;
             args.show_display = args.show_display || null;
             args.multisig = args.multisig || null;
 
-            return that.call(new protoBuf.GetAddress(
-                args.address_n, args.coin_name, args.show_display, args.multisig
-            ))
+            return that._setDeviceInUse(true)
+                .then(that.call.bind(this, new protoBuf.GetAddress(
+                    args.address_n, args.coin_name, args.show_display, args.multisig
+                )))
+                .then(decorators.deviceReady)
                 .then(decorators.expect('Address'))
                 .then(decorators.field('address'));
         };
 
-        commands.getEntropy = function (size) {
+        that.getEntropy = function (size) {
             return that.call(new protoBuf.GetEntropy(size))
                 .then(decorators.expect('Entropy'))
                 .then(decorators.field('entropy'));
         };
 
-        commands.ping = function (args) {
+        that.ping = function (args) {
             args.message = args.message || '';
             args.button_protection = args.button_protection || false;
             args.pin_protection = args.pin_protection || false;
             args.passphrase_protection = args.passphrase_protection || false;
 
-            return that.call(new protoBuf.Ping(
-                args.message, args.button_protection, args.pin_protection, args.passphrase_protection
-            ))
+            return that._setDeviceInUse(true)
+                .then(that.call.bind(this, new protoBuf.Ping(
+                    args.message, args.button_protection, args.pin_protection, args.passphrase_protection
+                )))
+                .then(decorators.deviceReady)
                 .then(decorators.expect('Success'))
                 .then(decorators.field('message'));
         };
 
-        commands.applySettings = function (args) {
+        that.applySettings = function (args) {
             args.language = args.language || null;
             args.label = args.label || null;
             args.use_passphrase = args.use_passphrase || null;
@@ -212,13 +204,22 @@
                 .then(decorators.field('message'));
         };
 
-        commands.clearSession = function () {
+        that.clearSession = function () {
             return that.call(new protoBuf.ClearSession())
                 .then(decorators.expect('Success'))
                 .then(decorators.field('message'));
         };
 
-        commands.signMessage = function (args) {
+        that.changePin = function (remove) {
+            return that._setDeviceInUse(true)
+                .then(that.call.bind(this, new protoBuf.ChangePin(remove)))
+                .then(decorators.deviceReady, decorators.deviceReady)
+                .then(decorators.expect('Success'))
+                .then(decorators.field('message'))
+                .then(decorators.refreshFeatures);
+        };
+
+        that.signMessage = function (args) {
             args.address_n = args.address_n || [];
             args.message = args.message || '';
             args.coin_name = args.coin_name || null;
@@ -229,7 +230,7 @@
                 .then(decorators.expect('MessageSignature'));
         };
 
-        commands.verifyMessage = function (args) {
+        that.verifyMessage = function (args) {
             var messageBB = null;
 
             args.address = args.address || null;
@@ -244,12 +245,16 @@
                 args.address, args.signature, messageBB
             ))
                 .then(function (rxProtoMsg) {
-                    return (rxProtoMsg.$type.name === 'Success');
+                    if (rxProtoMsg.$type.name === 'Success') {
+                        return true;
+                    } else {
+                        return false;
+                    }
                 });
 
         };
 
-        commands.encryptMessage = function (args) {
+        that.encryptMessage = function (args) {
             args.pubkey = args.pubkey || null;
             args.message = args.message || null;
             args.display_only = args.display_only || null;
@@ -263,7 +268,7 @@
                 .then(decorators.expect('EncryptedMessage'));
         };
 
-        commands.decryptMessage = function (args) {
+        that.decryptMessage = function (args) {
             args.address_n = args.address_n || [];
             args.nonce = args.nonce || null;
             args.message = args.message || null;
@@ -275,7 +280,7 @@
                 .then(decorators.expect('DecryptedMessage'));
         };
 
-        commands.encryptKeyValue = function (args) {
+        that.encryptKeyValue = function (args) {
             args.address_n = args.address_n || [];
             args.key = args.key || null;
             args.value = args.value || null;
@@ -288,7 +293,7 @@
                 .then(decorators.field('value'));
         };
 
-        commands.decryptKeyValue = function (args) {
+        that.decryptKeyValue = function (args) {
             args.address_n = args.address_n || [];
             args.key = args.key || null;
             args.value = args.value || null;
@@ -301,7 +306,7 @@
                 .then(decorators.field('value'));
         };
 
-        commands.estimateTxSize = function (args) {
+        that.estimateTxSize = function (args) {
             args.outputs_count = args.outputs_count || 0;
             args.inputs_count = args.inputs_count || 0;
             args.coin_name = args.coin_name || null;
@@ -311,13 +316,16 @@
                 .then(decorators.field('tx_size'));
         };
 
-        commands.wipeDevice = function () {
-            return that.call(new protoBuf.WipeDevice())
+        that.wipeDevice = function () {
+            return that._setDeviceInUse(true)
+                .then(that.call.bind(this, new protoBuf.WipeDevice()))
+                .then(decorators.deviceReady)
                 .then(decorators.expect('Success'))
-                .then(decorators.field('message'));
+                .then(decorators.field('message'))
+                .then(decorators.refreshFeatures);
         };
 
-        commands.resetDevice = function (args) {
+        that.resetDevice = function (args) {
             args = args || {};
             args.display_random = args.display_random || null;
             args.strength = args.strength || null;
@@ -326,32 +334,42 @@
             args.language = args.language || null;
             args.label = args.label || null;
 
-            assert(features.initialized === false);
-
-            return that.call(new protoBuf.ResetDevice(
-                args.display_random, args.strength, args.passphrase_protection,
-                args.pin_protection, args.language, args.label
-            ))
-
-                // receive entropy request and respond with local machine entropy
+            return featuresPromise
+                .then(function (features) {
+                    assert(features.initialized === false);
+                })
+                .then(that._setDeviceInUse.bind(this, true))
+                .then(that.call.bind(this, new protoBuf.ResetDevice(
+                    args.display_random, args.strength, args.passphrase_protection,
+                    args.pin_protection, args.language, args.label
+                )))
                 .then(decorators.expect('EntropyRequest'))
                 .then(that.call.bind(this, new protoBuf.EntropyAck(getLocalEntropy())))
-
-                // receive success message and refresh features
+                .then(decorators.deviceReady)
                 .then(decorators.expect('Success'))
-                .then(decorators.field('message'));
+                .then(decorators.field('message'))
+                .then(decorators.refreshFeatures);
         };
 
-        commands.loadDeviceByMnemonic = function (args) {
+        that.recoveryDevice = function (args) {
+            args = args || {};
+            args.word_count = args.word_count || null;
+            args.passphrase_protection = args.passphrase_protection || null;
+            args.pin_protection = args.pin_protection || null;
+            args.language = args.language || null;
+            args.label = args.label || null;
+            args.enforce_wordlist = args.enforce_wordlist || true;
+
+            throw(new Error('Recovery device not implemented.'));
+        };
+
+        that.loadDeviceByMnemonic = function (args) {
             args.mnemonic = args.mnemonic || null;
             args.pin = args.pin || null;
             args.passphrase_protection = args.passphrase_protection || null;
             args.language = args.language || null;
             args.label = args.label || null;
             args.skip_checksum = args.skip_checksum || null;
-
-            assert(features.initialized === false);
-            assert(bip39.validateMnemonic(args.mnemonic));
 
             return that.call(new protoBuf.LoadDevice(
                 args.mnemonic.normalize('NFC'), null, args.pin, args.passphrase_protection,
@@ -361,7 +379,7 @@
                 .then(decorators.field('message'));
         };
 
-        commands.loadDeviceByXprv = function (args) {
+        that.loadDeviceByXprv = function (args) {
             var hdNode = null;
 
             args.node = args.node || null;
@@ -378,8 +396,6 @@
             hdNode.chain_code = args.node.chainCode;
             hdNode.private_key = args.node.privKey.d.toBuffer();
 
-            assert(features.initialized === false);
-
             return that.call(new protoBuf.LoadDevice(
                 null, hdNode, args.pin, args.passphrase_protection, args.language, args.label, null
             ))
@@ -387,13 +403,45 @@
                 .then(decorators.field('message'));
         };
 
-        commands.applySettings.refreshFeatures = true;
-        commands.wipeDevice.refreshFeatures = true;
-        commands.resetDevice.refreshFeatures = true;
-        commands.resetDevice.loadDeviceByMnemonic = true;
-        commands.resetDevice.loadDeviceByXprv = true;
+        decorators.expect = function (msgClass) {
+            return function (rxProtoMsg) {
+                var rxProtoMsgClass = rxProtoMsg.$type.name;
 
-        that.ready().initialize();
+                if (rxProtoMsgClass !== msgClass) {
+                    throw {
+                        name: 'Error',
+                        message: sprintf('Got %s, expected %s.', rxProtoMsgClass, msgClass)
+                    };
+                }
+
+                return rxProtoMsg;
+            };
+        };
+
+        decorators.field = function (msgField) {
+            return function (rxProtoMsg) {
+                if (!rxProtoMsg.hasOwnProperty(msgField)) {
+                    throw {
+                        name: 'Error',
+                        message: sprintf('Message field "%s" not found in response.', msgField)
+                    };
+                }
+
+                return rxProtoMsg[msgField];
+            };
+        };
+
+        decorators.deviceReady = function (rxProtoMsg) {
+            that._setDeviceInUse(false);
+            return rxProtoMsg;
+        };
+
+        decorators.refreshFeatures = function (rxProtoMsg) {
+            featuresPromise = that.initialize();
+            return rxProtoMsg;
+        };
+
+        that.initialize();
 
         return that;
     }
@@ -405,39 +453,14 @@
         return ByteBuffer.wrap(randArr);
     }
 
-    decorators.expect = function (msgClass) {
-        return function (rxProtoMsg) {
-            var rxProtoMsgClass = rxProtoMsg.$type.name;
-
-            if (rxProtoMsgClass !== msgClass) {
-                throw {
-                    name: 'Error',
-                    message: sprintf('Got %s, expected %s.', rxProtoMsgClass, msgClass)
-                };
-            }
-
-            return rxProtoMsg;
-        };
-    };
-
-    decorators.field = function (msgField) {
-        return function (rxProtoMsg) {
-            if (!rxProtoMsg.hasOwnProperty(msgField)) {
-                throw {
-                    name: 'Error',
-                    message: sprintf('Message field "%s" not found in response.', msgField)
-                };
-            }
-
-            return rxProtoMsg[msgField];
-        };
-    };
-
     module.exports.create = function (transport, messagesProtoBuf) {
         var transportDeviceId = transport.getDeviceId();
 
         if (!clients.hasOwnProperty(transportDeviceId)) {
             clients[transportDeviceId] = clientMaker(transport, messagesProtoBuf);
+
+            // extend client with default mixin
+            extend(clients[transportDeviceId], defaultMixin());
         }
 
         return clients[transportDeviceId];
@@ -447,11 +470,11 @@
         var deviceInfo = transport.getDeviceInfo(),
             deviceType = null;
 
-        // find matching vendor and product id and return
-        // matched type
         for (deviceType in DEVICES) {
             if (DEVICES[deviceType].vendorId === deviceInfo.vendorId &&
                 DEVICES[deviceType].productId === deviceInfo.productId) {
+
+                transport.setMessageMap(deviceType, clientTypes[deviceType].getProtoBuf());
 
                 return clientTypes[deviceType].create(transport);
             }
@@ -468,6 +491,12 @@
         var transportDeviceId = transport.getDeviceId();
 
         delete clients[transportDeviceId];
+    };
+
+    module.exports.getAllClients = function () {
+        return Object.keys(clients).map(function (deviceId) {
+            return clients[deviceId];
+        });
     };
 
 })();

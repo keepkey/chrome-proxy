@@ -27,68 +27,16 @@
     var SEGMENT_SIZE = 63,
         REPORT_ID = 63;
 
-    var ByteBuffer = require('bytebuffer'),
-        transport = require('./transport.js'),
-        pollingEnabled = false,     // whether device polling is enabled or not
-        events = {                  // events that device polling fires
-            deviceConnected: null,
-            deviceDisconnected: null
-        };
+    var ByteBuffer = require('bytebuffer');
+    var transport = require('./transport.js');
 
-    var devicePolling = function () {
-
-        // only enumerate devices if there is a registered connect
-        // event.  the purpose of this polling to to facilitate
-        // device connect/disconnect events
-
-        if (pollingEnabled) {
-            if (typeof events.deviceConnected === 'function') {
-                /* global chrome */
-                chrome.hid.getDevices({}, function (devices) {
-                    var i = 0,
-                        max = devices.length,
-                        deviceAlive = {},
-                        currentDevice = null,
-                        currentDeviceId = 0,
-                        connectedDevices = transport.getDeviceIds();
-
-                    // detect device connects
-                    for (; i < max; i += 1) {
-                        currentDevice = devices[i];
-                        currentDeviceId = currentDevice.deviceId;
-                        deviceAlive[currentDeviceId] = true;
-
-                        if (!transport.hasDeviceId(currentDeviceId)) {
-                            module.exports.create(devices[i]);
-                        }
-                    }
-
-                    // detect device disconnects
-                    for (i = 0, max = connectedDevices.length; i < max; i += 1) {
-                        currentDeviceId = connectedDevices[i];
-
-                        if (!deviceAlive[currentDeviceId]) {
-                            if (typeof events.deviceDisconnected === 'function') {
-                                events.deviceDisconnected(transport.find(currentDeviceId));
-                            }
-
-                            transport.remove(currentDeviceId);
-                        }
-                    }
-                });
-            }
-
-            setTimeout(devicePolling, 1000);
-        }
-    };
-
-    module.exports.create = function (hidDevice) {
+    module.exports.onConnect = function (hidDevice, callback) {
 
         var hidDeviceId = hidDevice.deviceId,     // HID device id
             that = transport.create(hidDeviceId),   // create parent transport
             connection = 0;                         // connection id used for writing and reading from device
 
-        var open = function () {
+        var connect = function (callback) {
             /* global chrome */
             chrome.hid.connect(hidDeviceId, function (connectInfo) {
                 if (!connectInfo) {
@@ -99,20 +47,19 @@
                 }
                 connection = connectInfo.connectionId;
 
-                // fire deviceConnected event
-                events.deviceConnected(that);
+                callback(that);
             });
         };
 
         var writeToHid = function (txSegmentBB) {
             return new Promise(function (resolve, reject) {
                 try {
-                    /* global chrome */
                     chrome.hid.send(
                         connection,
                         SEGMENT_SIZE,
                         txSegmentBB.toArrayBuffer(),
-                        resolve);
+                        resolve
+                    );
                 } catch (error) {
                     reject(error);
                 }
@@ -176,7 +123,7 @@
                     // if message length is longer than what we have buffered, create promises
                     // for each remaining segment
                     if (rxMsg.header.msgLength > rxMsg.bufferBB.limit) {
-                        var remainingCount = Math.floor((rxMsg.header.msgLength - rxMsg.bufferBB.limit) / SEGMENT_SIZE),
+                        var remainingCount = Math.ceil((rxMsg.header.msgLength - rxMsg.bufferBB.limit) / SEGMENT_SIZE),
                             readSegments = readFromHid(rxMsg);
 
                         for (max = remainingCount; i < max; i += 1) {
@@ -197,26 +144,7 @@
             };
         };
 
-        open();
-
-        return that;
-    };
-
-    module.exports.startListener = function () {
-        pollingEnabled = true;
-        devicePolling();
-    };
-
-    module.exports.stopListener = function () {
-        pollingEnabled = false;
-    };
-
-    module.exports.onDeviceConnected = function (callback) {
-        events.deviceConnected = callback;
-    };
-
-    module.exports.onDeviceDisconnected = function (callback) {
-        events.deviceDisconnected = callback;
+        connect(callback);
     };
 
 })();

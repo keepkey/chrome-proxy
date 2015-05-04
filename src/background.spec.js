@@ -31,8 +31,8 @@ xdescribe('background', function () {
 
 
     //beforeEach(function () {
-        //onConnectedStub = sinon.stub(transportHid, 'onDeviceConnected');
-        //onDisconnectedStub = sinon.stub(transportHid, 'onDeviceDisconnected');
+        //onConnectedStub = sinon.stub(transportHidModule, 'onDeviceConnected');
+        //onDisconnectedStub = sinon.stub(transportHidModule, 'onDeviceDisconnected');
         ////
         ////global.chrome = require('chrome-mock');
         ////
@@ -69,7 +69,7 @@ xdescribe('background', function () {
 
                 //page.evaluate(function () {
                 //    /* jshint -W117 */
-                //    onConnectedStub = sinon.stub(transportHid, 'onDeviceConnected');
+                //    onConnectedStub = sinon.stub(transportHidModule, 'onDeviceConnected');
                 //    /* jshint +W117 */
                 //});
 

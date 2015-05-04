@@ -23,15 +23,63 @@
  * END KEEPKEY LICENSE
  */
 
+var EventEmitter2 = require('eventemitter2').EventEmitter2;
 var clientModule = require('./modules/keepkeyjs/client.js');
-var transportHid = require('./modules/keepkeyjs/transport_hid.js');
-var clientPool = [];
+var transportModule = require('./modules/keepkeyjs/transport.js');
+var transportHidModule = require('./modules/keepkeyjs/transport_hid.js');
 var config = require('../dist/config.json');
+var $q = require('q');
 var keepKeyWalletId = config.keepkeyWallet.applicationId;
+var clientEE = new EventEmitter2();
 
-var handleDeviceConnected = function (transport) {
+var isDeviceConnected = function () {
+    return $q.Promise(function (resolve, reject, notify) {
+        chrome.hid.getDevices({}, function (hidDevices) {
+            resolve(!!hidDevices.length);
+        });
+    });
+};
+
+chrome.runtime.onMessageExternal.addListener(
+    function (request, sender, sendResponse) {
+        if (sender.id === keepKeyWalletId) {
+            switch (request.messageType) {
+                case 'deviceReady':
+                    isDeviceConnected().then(function (isConnected) {
+                        sendResponse({
+                            messageType: "deviceReadyResponse",
+                            result: isConnected
+                        });
+                    });
+                    return true;
+                //case 'reset':
+                //    clientPool[0].ready()
+                //        .resetDevice({
+                //            passphrase_protection: false,
+                //            pin_protection: true,
+                //            label: "My Label"
+                //        })
+                //        .then(console.log('device reset'));
+
+                default:
+                    sendResponse({
+                        messageType: "Error",
+                        result: "Unknown message type: " + request.messageType
+                    });
+            }
+        } else {
+            sendResponse({
+                messageType: "Error",
+                result: "Unknown sender " + sender.id + ", message rejected"
+            });
+        }
+        return false;
+    }
+);
+
+function createClientForDevice(transport) {
     var client = clientModule.factory(transport);
-    clientPool.push(client);
+    clientEE.emit('clientConnected');
 
     chrome.runtime.sendMessage(
         keepKeyWalletId,
@@ -43,71 +91,44 @@ var handleDeviceConnected = function (transport) {
     );
 
     console.log("%s connected: %d", client.getDeviceType(), transport.getDeviceId());
-};
+}
 
-var handleDeviceDisconnected = function (transport) {
-    var disconnectedClient = clientModule.find(transport),
-        i = 0,
-        max = clientPool.length;
+chrome.hid.onDeviceAdded.addListener(function (hidDevice) {
+    transportHidModule.onConnect(hidDevice, createClientForDevice);
+});
 
-    for (; i < max; i += 1) {
-        if (clientPool[i] === disconnectedClient) {
-            clientPool.splice(i, 1);
-        }
-    }
+/**
+ * Listen for HID disconnects, and clean up when one happends
+ */
+chrome.hid.onDeviceRemoved.addListener(function (deviceId) {
+    var device = transportModule.find(deviceId);
 
-    clientModule.remove(transport);
+    var deviceType = clientModule.find(device).getDeviceType();
+
+    clientModule.remove(device);
+    transportModule.remove(deviceId);
+
+    clientEE.emit('clientDisconnected');
 
     chrome.runtime.sendMessage(
         keepKeyWalletId,
         {
             messageType: "disconnected",
-            deviceType: disconnectedClient.getDeviceType(),
-            deviceId: transport.getDeviceId()
+            deviceType: deviceType,
+            deviceId: deviceId
         }
     );
 
-    console.log("%s Disconnected: %d", disconnectedClient.getDeviceType(), transport.getDeviceId());
-};
+    console.log("%s Disconnected: %d", deviceType, deviceId);
 
-transportHid.onDeviceConnected(handleDeviceConnected);
-transportHid.onDeviceDisconnected(handleDeviceDisconnected);
-transportHid.startListener();
 
-chrome.runtime.onMessageExternal.addListener(
-    function (request, sender, sendResponse) {
-        console.log("External message:", request.messageType);
-        if (sender.id === keepKeyWalletId) {
-            switch (request.messageType) {
-                case 'deviceReady':
-                    sendResponse({
-                        messageType: "deviceReadyResponse",
-                        result: !!clientPool.length
-                    });
-                    break;
-            }
-        } else {
-            sendResponse({
-                messageType: "Error",
-                result: "Unknown sender " + sender.id + ", message rejected"
-            });
-        }
+});
+
+/**
+ * Enumerate devices that are already connected
+ */
+chrome.hid.getDevices({}, function (hidDevices) {
+    for (var i = 0, iMax = hidDevices.length; i < iMax; i += 1) {
+        transportHidModule.onConnect(hidDevices[i], createClientForDevice);
     }
-);
-
-chrome.runtime.sendMessage(
-    keepKeyWalletId,
-    {
-        messageType: "ping"
-    },
-    function(response) {
-        if (response === undefined) {
-            chrome.app.window.create('InstallWallet.html',
-                {
-                    id: "messagingInstallWallet",
-                    innerBounds: {width: 800, height: 500}
-                });
-
-        }
-    }
-);
+});
