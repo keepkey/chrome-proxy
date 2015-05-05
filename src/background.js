@@ -28,12 +28,12 @@ var clientModule = require('./modules/keepkeyjs/client.js');
 var transportModule = require('./modules/keepkeyjs/transport.js');
 var transportHidModule = require('./modules/keepkeyjs/transport_hid.js');
 var config = require('../dist/config.json');
-var $q = require('q');
+var extend = require('extend-object');
 var keepKeyWalletId = config.keepkeyWallet.applicationId;
 var clientEE = new EventEmitter2();
 
 var isDeviceConnected = function () {
-    return $q.Promise(function (resolve, reject, notify) {
+    return new Promise(function (resolve, reject, notify) {
         chrome.hid.getDevices({}, function (hidDevices) {
             resolve(!!hidDevices.length);
         });
@@ -52,15 +52,30 @@ chrome.runtime.onMessageExternal.addListener(
                         });
                     });
                     return true;
-                //case 'reset':
-                //    clientPool[0].ready()
-                //        .resetDevice({
-                //            passphrase_protection: false,
-                //            pin_protection: true,
-                //            label: "My Label"
-                //        })
-                //        .then(console.log('device reset'));
+                case 'reset':
+                    console.log('got reset request:', request);
 
+                    var resetArgs = extend({
+                        passphrase_protection: false,
+                        pin_protection: true,
+                        label: "My KeepKey Device"
+                    }, request);
+                    delete resetArgs.messageType;
+
+                    new Promise(function (resolve, reject, notify) {
+                        chrome.hid.getDevices({}, function (hidDevices) {
+                            // TODO This needs to be smarter about selecting a device to reset
+                            resolve(hidDevices[0].deviceId);
+                        });
+                    }).then(function(deviceId) {
+                        var client = clientModule.findByDeviceId(deviceId);
+
+                        return client.resetDevice(resetArgs);
+                    }).then(function() {
+                        console.log('device reset');
+                    });
+
+                    return true;
                 default:
                     sendResponse({
                         messageType: "Error",
@@ -77,8 +92,21 @@ chrome.runtime.onMessageExternal.addListener(
     }
 );
 
-function createClientForDevice(transport) {
-    var client = clientModule.factory(transport);
+
+
+function createClientForDevice(deviceTransport) {
+    var client = clientModule.factory(deviceTransport);
+    client.addListener('DeviceMessage', function onDeviceMessage(type, message) {
+        console.log('Sending message to ui:', message);
+
+        chrome.runtime.sendMessage(
+            keepKeyWalletId,
+            {
+                messageType: type,
+                message: message
+            }
+        );
+    });
     clientEE.emit('clientConnected');
 
     chrome.runtime.sendMessage(
@@ -86,11 +114,11 @@ function createClientForDevice(transport) {
         {
             messageType: "connected",
             deviceType: client.getDeviceType(),
-            deviceId: transport.getDeviceId()
+            deviceId: deviceTransport.getDeviceId()
         }
     );
 
-    console.log("%s connected: %d", client.getDeviceType(), transport.getDeviceId());
+    console.log("%s connected: %d", client.getDeviceType(), deviceTransport.getDeviceId());
 }
 
 chrome.hid.onDeviceAdded.addListener(function (hidDevice) {
@@ -98,7 +126,7 @@ chrome.hid.onDeviceAdded.addListener(function (hidDevice) {
 });
 
 /**
- * Listen for HID disconnects, and clean up when one happends
+ * Listen for HID disconnects, and clean up when one happens
  */
 chrome.hid.onDeviceRemoved.addListener(function (deviceId) {
     var device = transportModule.find(deviceId);
@@ -132,3 +160,7 @@ chrome.hid.getDevices({}, function (hidDevices) {
         transportHidModule.onConnect(hidDevices[i], createClientForDevice);
     }
 });
+
+
+
+

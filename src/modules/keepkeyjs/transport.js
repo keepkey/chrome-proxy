@@ -123,6 +123,7 @@
             };
 
             that._write = function () {
+                console.error("Error: The protected _write() function is not implemented");
                 throw {
                     name: 'Error',
                     message: '_write not implemented.'
@@ -130,6 +131,7 @@
             };
 
             that._read = function () {
+                console.error("Error: The protected _read() function is not implemented");
                 throw {
                     name: 'Error',
                     message: '_read not implemented.'

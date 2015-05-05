@@ -23,26 +23,48 @@
 
     'use strict';
 
-    var ByteBuffer = require('bytebuffer'),
-        extend = require('extend-object'),
-        assert = require('assert'),
-        uint32 = require('uint32'),
+    var ByteBuffer = require('bytebuffer');
+    var extend = require('extend-object');
+    var assert = require('assert');
+    var uint32 = require('uint32');
     // bip39 = require('bip39'),
-        sprintf = require("sprintf-js").sprintf,
+    var sprintf = require("sprintf-js").sprintf;
+    var EventEmitter2 = require('eventemitter2').EventEmitter2;
 
-        KEEPKEY = 'KEEPKEY',
-        TREZOR = 'TREZOR',
-        DEVICES = require('./transport.js').DEVICES,
-        PRIME_DERIVATION_FLAG = 0x80000000;
+    var KEEPKEY = 'KEEPKEY';
+    var TREZOR = 'TREZOR';
+    var DEVICES = require('./transport.js').DEVICES;
+    var PRIME_DERIVATION_FLAG = 0x80000000;
 
     module.exports.KEEPKEY = KEEPKEY;
     module.exports.TREZOR = TREZOR;
+
+    var featuresService = {};
+    featuresService.featuresPromise = new Promise(function(resolve) {
+        featuresService.getPromise = function() {
+            return featuresService.featuresPromise;
+        };
+
+        featuresService.setValue = function(value) {
+            resolve(value);
+        };
+    });
 
     function defaultMixin() {
         var that = {};  // create default ui mixin
 
         that.onButtonRequest = function () {
             return Promise.resolve(new (this.getProtoBuf().ButtonAck)());
+        };
+
+        that.onPinMatrixRequest = function() {
+            //console.log('PinMatrixRequest:', arguments);
+
+
+        };
+
+        that.onFeatures = function(rxMessage) {
+            featuresService.setValue(rxMessage);
         };
 
         return that;
@@ -68,10 +90,37 @@
 
     function clientMaker(transport, protoBuf) {
 
-        var that = {},                            // new client object
-            featuresPromise = Promise.resolve(),    // device features
-            deviceInUse = false,                    // is device currently in use?
-            decorators = {};                        // decorators to check and format responses from device
+        var that = {};
+        var featuresPromise = featuresService.getPromise();
+        var deviceInUse = false;
+        var decorators = {};
+        var eventEmitter = new EventEmitter2();
+
+        that.addListener = eventEmitter.addListener.bind(eventEmitter);
+
+        // Poll for incoming messages
+        that.devicePollingInterval = setInterval(function() {
+            if (!deviceInUse) {
+                transport.read()
+                    .then(function dispatchIncomingMessage(message) {
+                        console.log('msg:', message);
+                        if (message) {
+                            eventEmitter.emit('DeviceMessage', message.$type.name, message);
+
+                            var handler = 'on' + message.$type.name;
+                            if (that.hasOwnProperty(handler)) {
+                                return that[handler](message);
+                            } else {
+                                return message;
+                            }
+                        }
+                    });
+            }
+        }, 1000);
+
+        that.stopPolling = function() {
+            clearInterval(that.devicePollingInterval);
+        };
 
         that._setDeviceInUse = function (status) {
             return new Promise(function (resolve) {
@@ -111,11 +160,12 @@
         };
 
         that.call = function (txProtoMsg) {
-            return Promise.resolve(txProtoMsg)
-                .then(that.txAndRxTransport)
+            return that.txAndRxTransport(txProtoMsg)
                 .then(function (rxProtoMsg) {
+                    console.log('rxProtoMsg:', rxProtoMsg);
                     var handler = rxProtoMsg.$type.name;
 
+                    console.log('handler:', handler);
                     if (that.hasOwnProperty('on' + handler)) {
                         return that['on' + handler](rxProtoMsg)
                             .then(function (handlerTxProtoMsg) {
@@ -124,12 +174,17 @@
                     } else {
                         return rxProtoMsg;
                     }
+                })
+                .catch(function () {
+                    console.error('failure', arguments);
                 });
         };
 
         that.txAndRxTransport = function (txProtoMsg) {
             return transport.write(txProtoMsg)
-                .then(transport.read);
+                .then(function() {
+                    return transport.read();
+                });
         };
 
         that.cancel = function () {
@@ -138,14 +193,10 @@
         };
 
         that.initialize = function () {
-            var initializePromise = that._setDeviceInUse(true)
-                .then(that.call.bind(this, new protoBuf.Initialize()))
+            return that._setDeviceInUse(true)
+                .then(transport.write.bind(this, new protoBuf.Initialize()))
                 .then(decorators.deviceReady)
-                .then(decorators.expect('Features'));
-
-            featuresPromise = initializePromise;
-
-            return initializePromise;
+                .then(featuresService.getPromise);
         };
 
         that.getPublicNode = function (address_n) {
@@ -326,6 +377,7 @@
         };
 
         that.resetDevice = function (args) {
+            console.log('resetting');
             args = args || {};
             args.display_random = args.display_random || null;
             args.strength = args.strength || null;
@@ -336,19 +388,26 @@
 
             return featuresPromise
                 .then(function (features) {
-                    assert(features.initialized === false);
+                    if (!features.initialized) {
+                        var resetMessage = new protoBuf.ResetDevice(
+                            args.display_random, args.strength, args.passphrase_protection,
+                            args.pin_protection, args.language, args.label
+                        );
+                        return transport.write(resetMessage);
+                    } else {
+                        return Promise.reject("Error: Expected features.initialized to be false: ", features);
+                    }
                 })
-                .then(that._setDeviceInUse.bind(this, true))
-                .then(that.call.bind(this, new protoBuf.ResetDevice(
-                    args.display_random, args.strength, args.passphrase_protection,
-                    args.pin_protection, args.language, args.label
-                )))
-                .then(decorators.expect('EntropyRequest'))
-                .then(that.call.bind(this, new protoBuf.EntropyAck(getLocalEntropy())))
+
+                //.then(that._setDeviceInUse.bind(this, true))
+
+                //.then(decorators.expect('EntropyRequest'))
+                //.then(that.call.bind(this, new protoBuf.EntropyAck(getLocalEntropy())))
+
                 .then(decorators.deviceReady)
-                .then(decorators.expect('Success'))
-                .then(decorators.field('message'))
-                .then(decorators.refreshFeatures);
+                .catch(function () {
+                    console.error('failure', arguments);
+                });
         };
 
         that.recoveryDevice = function (args) {
@@ -441,7 +500,10 @@
             return rxProtoMsg;
         };
 
-        that.initialize();
+        that.initialize()
+            .catch(function () {
+                console.error('failure while initializing', arguments);
+            });
 
         return that;
     }
@@ -487,9 +549,14 @@
         return clients[transportDeviceId];
     };
 
+    module.exports.findByDeviceId = function (deviceId) {
+        return clients[deviceId];
+    };
+
     module.exports.remove = function (transport) {
         var transportDeviceId = transport.getDeviceId();
 
+        clients[transportDeviceId].stopPolling();
         delete clients[transportDeviceId];
     };
 

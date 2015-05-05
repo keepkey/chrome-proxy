@@ -58,18 +58,26 @@
                         connection,
                         SEGMENT_SIZE,
                         txSegmentBB.toArrayBuffer(),
-                        resolve
+                        function() {
+                            resolve();
+                        }
                     );
                 } catch (error) {
+                    console.error('Error sending to HID:', error);
                     reject(error);
                 }
             });
         };
 
         var readFromHid = function (rxMsg) {
+            // TODO Clean this function up
             return new Promise(function (resolve, reject) {
                 /* global chrome */
-                chrome.hid.receive(connection, function (reportId, rxMsgAB) {
+                console.log('attempting HID read:', connection);
+                var foo = chrome.hid.receive(connection, function (reportId, rxMsgAB) {
+
+                    console.log('message received:', rxMsgAB);
+
                     if (reportId === REPORT_ID) {
                         if (typeof rxMsg === 'undefined') {
                             rxMsg = rxMsg || {
@@ -82,6 +90,7 @@
 
                         resolve(rxMsg);
                     } else {
+                        console.error('Error: Received unknown report ID from HID:', reportId);
                         reject({
                             name: 'Error',
                             message: 'Unexpected report ID.'
@@ -103,18 +112,19 @@
                 txSegmentAB = txMsgBB.toArrayBuffer().slice(i, i + SEGMENT_SIZE);
                 txSegmentBB = ByteBuffer.concat([txSegmentAB, ByteBuffer.wrap(new Array(SEGMENT_SIZE - txSegmentAB.byteLength + 1).join('\0'))]);
 
+                // Add an operation to the end of the chain
                 writePromise = writePromise
-                    .then(Promise.resolve(writeToHid(txSegmentBB)));
+                    .then(writeToHid.bind(this, txSegmentBB));
+
             }
 
+            // return the last promise on the chain
             return writePromise;
         };
 
         that._read = function () {
             return readFromHid()
                 .then(function (rxMsg) {  // first segment
-                    var i = 0, max = 0;
-
                     // parse header and then remove it from buffer
                     rxMsg.header = transport.parseMsgHeader(rxMsg.bufferBB);
                     rxMsg.bufferBB =
@@ -123,14 +133,14 @@
                     // if message length is longer than what we have buffered, create promises
                     // for each remaining segment
                     if (rxMsg.header.msgLength > rxMsg.bufferBB.limit) {
-                        var remainingCount = Math.ceil((rxMsg.header.msgLength - rxMsg.bufferBB.limit) / SEGMENT_SIZE),
-                            readSegments = readFromHid(rxMsg);
+                        var remainingCount = Math.ceil((rxMsg.header.msgLength - rxMsg.bufferBB.limit) / SEGMENT_SIZE);
+                        var readSegments = Promise.resolve(rxMsg);
 
-                        for (max = remainingCount; i < max; i += 1) {
+                        for (var i = 0, max = remainingCount; i < max; i += 1) {
                             readSegments = readSegments.then(readFromHid);
                         }
 
-                        return readSegments;  // return promises for remaining segments
+                        return readSegments;
                     } else {
                         return rxMsg;      // no more segments so just return this one segment
                     }
