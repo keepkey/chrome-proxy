@@ -30,6 +30,8 @@
     // bip39 = require('bip39'),
     var sprintf = require("sprintf-js").sprintf;
     var EventEmitter2 = require('eventemitter2').EventEmitter2;
+    var hydrate = require('./hydrate.js');
+    var crypto = window.crypto;
 
     var KEEPKEY = 'KEEPKEY';
     var TREZOR = 'TREZOR';
@@ -50,6 +52,13 @@
         };
     });
 
+    function getLocalEntropy() {
+        var randArr = new Uint8Array(32);
+        crypto.getRandomValues(randArr);
+        return ByteBuffer.wrap(randArr);
+    }
+
+
     function defaultMixin() {
         var that = {};  // create default ui mixin
 
@@ -57,10 +66,8 @@
             return Promise.resolve(new (this.getProtoBuf().ButtonAck)());
         };
 
-        that.onPinMatrixRequest = function() {
-            //console.log('PinMatrixRequest:', arguments);
-
-
+        that.onEntropyRequest = function(message) {
+            this.writeToDevice(new (this.getProtoBuf()).EntropyAck(getLocalEntropy()));
         };
 
         that.onFeatures = function(rxMessage) {
@@ -97,6 +104,7 @@
         var eventEmitter = new EventEmitter2();
 
         that.addListener = eventEmitter.addListener.bind(eventEmitter);
+        that.writeToDevice = transport.write.bind(transport);
 
         // Poll for incoming messages
         that.devicePollingInterval = setInterval(function() {
@@ -105,7 +113,8 @@
                     .then(function dispatchIncomingMessage(message) {
                         console.log('msg:', message);
                         if (message) {
-                            eventEmitter.emit('DeviceMessage', message.$type.name, message);
+
+                            eventEmitter.emit('DeviceMessage', message.$type.name, hydrate(message));
 
                             var handler = 'on' + message.$type.name;
                             if (that.hasOwnProperty(handler)) {
@@ -389,21 +398,32 @@
             return featuresPromise
                 .then(function (features) {
                     if (!features.initialized) {
-                        var resetMessage = new protoBuf.ResetDevice(
+                        var message = new protoBuf.ResetDevice(
                             args.display_random, args.strength, args.passphrase_protection,
                             args.pin_protection, args.language, args.label
                         );
-                        return transport.write(resetMessage);
+                        return transport.write(message);
                     } else {
                         return Promise.reject("Error: Expected features.initialized to be false: ", features);
                     }
                 })
+                .then(decorators.deviceReady)
+                .catch(function () {
+                    console.error('failure', arguments);
+                });
+        };
 
-                //.then(that._setDeviceInUse.bind(this, true))
+        that.pinMatrixAck = function(args) {
+            return featuresPromise
+                .then(function(features){
+                    if (!features.initialized) {
+                        var message = new protoBuf.PinMatrixAck(args.pin);
+                        return transport.write(message);
+                    } else {
+                        return Promise.reject("Error: Expected features.initialized to be false: ", features);
+                    }
 
-                //.then(decorators.expect('EntropyRequest'))
-                //.then(that.call.bind(this, new protoBuf.EntropyAck(getLocalEntropy())))
-
+                })
                 .then(decorators.deviceReady)
                 .catch(function () {
                     console.error('failure', arguments);
@@ -506,13 +526,6 @@
             });
 
         return that;
-    }
-
-    function getLocalEntropy() {
-        var randArr = new Uint8Array(32);
-        /* global window */
-        window.crypto.getRandomValues(randArr);
-        return ByteBuffer.wrap(randArr);
     }
 
     module.exports.create = function (transport, messagesProtoBuf) {

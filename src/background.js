@@ -42,6 +42,7 @@ var isDeviceConnected = function () {
 
 chrome.runtime.onMessageExternal.addListener(
     function (request, sender, sendResponse) {
+        console.log('client message:', request);
         if (sender.id === keepKeyWalletId) {
             switch (request.messageType) {
                 case 'deviceReady':
@@ -53,27 +54,37 @@ chrome.runtime.onMessageExternal.addListener(
                     });
                     return true;
                 case 'reset':
-                    console.log('got reset request:', request);
-
-                    var resetArgs = extend({
+                    var args = extend({
                         passphrase_protection: false,
                         pin_protection: true,
                         label: "My KeepKey Device"
                     }, request);
-                    delete resetArgs.messageType;
+                    delete args.messageType;
 
                     new Promise(function (resolve, reject, notify) {
                         chrome.hid.getDevices({}, function (hidDevices) {
                             // TODO This needs to be smarter about selecting a device to reset
                             resolve(hidDevices[0].deviceId);
                         });
-                    }).then(function(deviceId) {
-                        var client = clientModule.findByDeviceId(deviceId);
+                    }).then(function (deviceId) {
+                            var client = clientModule.findByDeviceId(deviceId);
+                            return client.resetDevice(args);
+                        });
 
-                        return client.resetDevice(resetArgs);
-                    }).then(function() {
-                        console.log('device reset');
-                    });
+                    return true;
+
+                case 'PinMatrixAck':
+                    var renameThisArgs = extend({}, request);
+
+                    new Promise(function (resolve) {
+                        chrome.hid.getDevices({}, function (hidDevices) {
+                            // TODO This needs to be smarter about selecting a device to reset
+                            resolve(hidDevices[0].deviceId);
+                        });
+                    }).then(function (deviceId) {
+                            var client = clientModule.findByDeviceId(deviceId);
+                            return client.pinMatrixAck(renameThisArgs);
+                        });
 
                     return true;
                 default:
@@ -91,7 +102,6 @@ chrome.runtime.onMessageExternal.addListener(
         return false;
     }
 );
-
 
 
 function createClientForDevice(deviceTransport) {
