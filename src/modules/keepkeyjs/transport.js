@@ -153,13 +153,14 @@
     })();
 
     module.exports.parseMsgHeader = function (msgBB) {
-        var i = 0,
-            max = module.exports.MSG_HEADER_START.length,
-            msgHeader;
+        var msgHeader;
 
         // check for header message start
-        for (; i < max; i += 1) {
-            if (String.fromCharCode(msgBB.readByte()) !== module.exports.MSG_HEADER_START[i]) {
+        for (var i = 0,
+                 iMax = module.exports.MSG_HEADER_START.length; i < iMax; i += 1) {
+            var next = String.fromCharCode(msgBB.readByte());
+
+            if (next !== module.exports.MSG_HEADER_START[i]) {
                 throw {
                     name: 'Error',
                     message: 'Message header not found when it was expected.'

@@ -73,11 +73,8 @@
             // TODO Clean this function up
             return new Promise(function (resolve, reject) {
                 /* global chrome */
-                console.log('attempting HID read:', connection);
-                var foo = chrome.hid.receive(connection, function (reportId, rxMsgAB) {
-
+                chrome.hid.receive(connection, function (reportId, rxMsgAB) {
                     console.log('message received:', rxMsgAB);
-
                     if (reportId === REPORT_ID) {
                         if (typeof rxMsg === 'undefined') {
                             rxMsg = rxMsg || {
@@ -123,6 +120,10 @@
         };
 
         that._read = function () {
+            if (that.readInProgess) {
+                return Promise.reject('read is not re-entrant');
+            }
+            that.readInProgess = true;
             return readFromHid()
                 .then(function (rxMsg) {  // first segment
                     // parse header and then remove it from buffer
@@ -140,8 +141,12 @@
                             readSegments = readSegments.then(readFromHid);
                         }
 
-                        return readSegments;
+                        return readSegments.then(function(rxMsg) {
+                            that.readInProgess = false;
+                            return rxMsg;
+                        });
                     } else {
+                        that.readInProgess = false;
                         return rxMsg;      // no more segments so just return this one segment
                     }
                 });

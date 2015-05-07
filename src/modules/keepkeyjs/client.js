@@ -32,6 +32,7 @@
     var EventEmitter2 = require('eventemitter2').EventEmitter2;
     var hydrate = require('./hydrate.js');
     var crypto = window.crypto;
+    var featuresService = require('./simpleGlobalStore.js');
 
     var KEEPKEY = 'KEEPKEY';
     var TREZOR = 'TREZOR';
@@ -40,17 +41,6 @@
 
     module.exports.KEEPKEY = KEEPKEY;
     module.exports.TREZOR = TREZOR;
-
-    var featuresService = {};
-    featuresService.featuresPromise = new Promise(function(resolve) {
-        featuresService.getPromise = function() {
-            return featuresService.featuresPromise;
-        };
-
-        featuresService.setValue = function(value) {
-            resolve(value);
-        };
-    });
 
     function getLocalEntropy() {
         var randArr = new Uint8Array(32);
@@ -63,15 +53,19 @@
         var that = {};  // create default ui mixin
 
         that.onButtonRequest = function () {
-            return Promise.resolve(new (this.getProtoBuf().ButtonAck)());
+            this.writeToDevice(new (this.getProtoBuf()).ButtonAck());
         };
 
         that.onEntropyRequest = function(message) {
             this.writeToDevice(new (this.getProtoBuf()).EntropyAck(getLocalEntropy()));
         };
 
-        that.onFeatures = function(rxMessage) {
-            featuresService.setValue(rxMessage);
+        that.onFeatures = function(message) {
+            featuresService.setValue(message);
+        };
+
+        that.onSuccess = function(message) {
+            this.initialize();
         };
 
         return that;
@@ -98,7 +92,6 @@
     function clientMaker(transport, protoBuf) {
 
         var that = {};
-        var featuresPromise = featuresService.getPromise();
         var deviceInUse = false;
         var decorators = {};
         var eventEmitter = new EventEmitter2();
@@ -123,7 +116,7 @@
                                 return message;
                             }
                         }
-                    });
+                    }, function() {});
             }
         }, 1000);
 
@@ -153,12 +146,8 @@
             };
         };
 
-        that.getFeatures = function () {
-            return featuresPromise;
-        };
-
         that.getDeviceId = function () {
-            return featuresPromise
+            return featuresService.getPromise()
                 .then(function (features) {
                     return features.device_id;
                 });
@@ -378,15 +367,11 @@
 
         that.wipeDevice = function () {
             return that._setDeviceInUse(true)
-                .then(that.call.bind(this, new protoBuf.WipeDevice()))
-                .then(decorators.deviceReady)
-                .then(decorators.expect('Success'))
-                .then(decorators.field('message'))
-                .then(decorators.refreshFeatures);
+                .then(transport.write.bind(this, new protoBuf.WipeDevice()))
+                .then(decorators.deviceReady);
         };
 
         that.resetDevice = function (args) {
-            console.log('resetting');
             args = args || {};
             args.display_random = args.display_random || null;
             args.strength = args.strength || null;
@@ -395,7 +380,7 @@
             args.language = args.language || null;
             args.label = args.label || null;
 
-            return featuresPromise
+            return featuresService.getPromise()
                 .then(function (features) {
                     if (!features.initialized) {
                         var message = new protoBuf.ResetDevice(
@@ -404,7 +389,7 @@
                         );
                         return transport.write(message);
                     } else {
-                        return Promise.reject("Error: Expected features.initialized to be false: ", features);
+                        return that.wipeDevice(); //Promise.reject("Error: Expected features.initialized to be false: ", features);
                     }
                 })
                 .then(decorators.deviceReady)
@@ -414,7 +399,7 @@
         };
 
         that.pinMatrixAck = function(args) {
-            return featuresPromise
+            return featuresService.getPromise()
                 .then(function(features){
                     if (!features.initialized) {
                         var message = new protoBuf.PinMatrixAck(args.pin);
@@ -516,7 +501,7 @@
         };
 
         decorators.refreshFeatures = function (rxProtoMsg) {
-            featuresPromise = that.initialize();
+            that.initialize();
             return rxProtoMsg;
         };
 
