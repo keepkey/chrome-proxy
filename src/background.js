@@ -99,6 +99,32 @@ chrome.runtime.onMessageExternal.addListener(
                         });
 
                     return true;
+                case 'Wipe':
+                    new Promise(function (resolve) {
+                        chrome.hid.getDevices({}, function (hidDevices) {
+                            // TODO This needs to be smarter about selecting a device to reset
+                            resolve(hidDevices[0].deviceId);
+                        });
+                    }).then(function (deviceId) {
+                            var client = clientModule.findByDeviceId(deviceId);
+                            return client.wipeDevice();
+                        });
+
+                    return true;
+
+                case 'Cancel':
+                    new Promise(function (resolve) {
+                        chrome.hid.getDevices({}, function (hidDevices) {
+                            // TODO This needs to be smarter about selecting a device to reset
+                            resolve(hidDevices[0].deviceId);
+                        });
+                    }).then(function (deviceId) {
+                            var client = clientModule.findByDeviceId(deviceId);
+                            return client.cancel();
+                        });
+
+                    return true;
+
                 default:
                     sendResponse({
                         messageType: "Error",

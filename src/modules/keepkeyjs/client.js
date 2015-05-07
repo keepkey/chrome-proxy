@@ -389,7 +389,7 @@
                         );
                         return transport.write(message);
                     } else {
-                        return that.wipeDevice(); //Promise.reject("Error: Expected features.initialized to be false: ", features);
+                        return Promise.reject("Error: Expected features.initialized to be false: ", features);
                     }
                 })
                 .then(decorators.deviceReady)
