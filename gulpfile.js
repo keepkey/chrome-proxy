@@ -95,16 +95,8 @@ gulp.task('test', function () {
         .pipe(mocha());
 });
 
-gulp.task('protocolBuffersKeepKey', function() {
-    return gulp.src('src/modules/keepkeyjs/keepkey/protob/messages.proto')
+gulp.task('protocolBuffers', function() {
+    return gulp.src('node_modules/device-protocol/messages.proto')
         .pipe(pbjs())
         .pipe(gulp.dest('tmp/keepkey'));
 });
-
-gulp.task('protocolBuffersTrezor', function() {
-    return gulp.src('src/modules/keepkeyjs/trezor/protob/messages.proto')
-        .pipe(pbjs())
-        .pipe(gulp.dest('tmp/trezor'));
-});
-
-gulp.task('protocolBuffers', ['protocolBuffersKeepKey', 'protocolBuffersTrezor']);

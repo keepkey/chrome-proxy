@@ -105,6 +105,7 @@
             };
 
             that.write = function (txProtoMsg) {
+                console.log('sending to device:', txProtoMsg.toString());
                 var msgAB = txProtoMsg.encodeAB(),
                     msgBB = ByteBuffer.concat([
                             ByteBuffer.wrap('##'),                                                                        // message start
@@ -118,7 +119,9 @@
             that.read = function () {
                 return that._read()
                     .then(function (rxMsg) {
-                        return parseMsg(rxMsg.header.msgType, ByteBuffer.wrap(rxMsg.bufferBB.toArrayBuffer().slice(0, rxMsg.header.msgLength)));
+                        var message = parseMsg(rxMsg.header.msgType, ByteBuffer.wrap(rxMsg.bufferBB.toArrayBuffer().slice(0, rxMsg.header.msgLength)));
+                        console.log("received from device:", message);
+                        return message;
                     });
             };
 

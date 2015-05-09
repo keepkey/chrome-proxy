@@ -74,7 +74,6 @@
             return new Promise(function (resolve, reject) {
                 /* global chrome */
                 chrome.hid.receive(connection, function (reportId, rxMsgAB) {
-                    console.log('message received:', rxMsgAB);
                     if (reportId === REPORT_ID) {
                         if (typeof rxMsg === 'undefined') {
                             rxMsg = rxMsg || {

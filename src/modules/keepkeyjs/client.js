@@ -139,13 +139,6 @@
             return decorators;
         };
 
-        that.getDeviceType = function () {
-            throw {
-                name: 'Error',
-                message: 'getDeviceType not implemented.'
-            };
-        };
-
         that.getDeviceId = function () {
             return featuresService.getPromise()
                 .then(function (features) {
@@ -398,6 +391,37 @@
                 });
         };
 
+        that.recoveryDevice = function (args) {
+            args = args || {};
+
+            //label: '',
+            //    enforce_wordlist:true
+
+            args.passphrase_protection = args.passphrase_protection || null;
+            args.pin_protection = args.pin_protection || null;
+            args.language = args.language || null;
+            args.label = args.label || null;
+            args.word_count = args.word_count || null;
+            args.enforce_wordlist = args.enforce_wordlist || null;
+
+            return featuresService.getPromise()
+                .then(function (features) {
+                    //if (!features.initialized) {
+                        var message = new protoBuf.RecoveryDevice(
+                            args.word_count, args.passphrase_protection, args.pin_protection,
+                            args.language, args.label, args.enforce_wordlist
+                        );
+                        return transport.write(message);
+                    //} else {
+                    //    return Promise.reject("Error: Expected features.initialized to be false: ", features);
+                    //}
+                })
+                .then(decorators.deviceReady)
+                .catch(function () {
+                    console.error('failure', arguments);
+                });
+        };
+
         that.pinMatrixAck = function(args) {
             return featuresService.getPromise()
                 .then(function(features){
@@ -415,16 +439,11 @@
                 });
         };
 
-        that.recoveryDevice = function (args) {
-            args = args || {};
-            args.word_count = args.word_count || null;
-            args.passphrase_protection = args.passphrase_protection || null;
-            args.pin_protection = args.pin_protection || null;
-            args.language = args.language || null;
-            args.label = args.label || null;
-            args.enforce_wordlist = args.enforce_wordlist || true;
-
-            throw(new Error('Recovery device not implemented.'));
+        that.wordAck = function(args) {
+            return featuresService.getPromise()
+                .then(function(features) {
+                    var message = new protoBuf.WordAck(args.word);
+                });
         };
 
         that.loadDeviceByMnemonic = function (args) {
