@@ -394,27 +394,25 @@
         that.recoveryDevice = function (args) {
             args = args || {};
 
-            //label: '',
-            //    enforce_wordlist:true
-
-            args.passphrase_protection = args.passphrase_protection || null;
-            args.pin_protection = args.pin_protection || null;
+            args.passphrase_protection = args.passphrase_protection || false;
+            args.pin_protection = args.pin_protection || true;
             args.language = args.language || null;
             args.label = args.label || null;
-            args.word_count = args.word_count || null;
-            args.enforce_wordlist = args.enforce_wordlist || null;
+            args.word_count = args.word_count || 12;
+            args.enforce_wordlist = args.enforce_wordlist || false;
+            args.use_character_cipher = args.use_character_cipher || true;
 
             return featuresService.getPromise()
                 .then(function (features) {
-                    //if (!features.initialized) {
+                    if (!features.initialized) {
                         var message = new protoBuf.RecoveryDevice(
                             args.word_count, args.passphrase_protection, args.pin_protection,
-                            args.language, args.label, args.enforce_wordlist
+                            args.language, args.label, args.enforce_wordlist, args.use_character_cipher
                         );
                         return transport.write(message);
-                    //} else {
-                    //    return Promise.reject("Error: Expected features.initialized to be false: ", features);
-                    //}
+                    } else {
+                        return Promise.reject("Error: Expected features.initialized to be false: ", features);
+                    }
                 })
                 .then(decorators.deviceReady)
                 .catch(function () {
@@ -443,6 +441,20 @@
             return featuresService.getPromise()
                 .then(function(features) {
                     var message = new protoBuf.WordAck(args.word);
+                    return transport.write(message);
+
+                });
+        };
+
+        that.characterAck = function(args) {
+            args.character = args.character || null;
+            args.delete = args.delete || null;
+            args.done = args.done || null;
+            return featuresService.getPromise()
+                .then(function(features) {
+                    var message = new protoBuf.CharacterAck(args.character, args.delete, args.done);
+                    return transport.write(message);
+
                 });
         };
 

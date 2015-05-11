@@ -125,6 +125,45 @@ chrome.runtime.onMessageExternal.addListener(
 
                     return true;
 
+                case 'RecoveryDevice':
+                    new Promise(function (resolve) {
+                        chrome.hid.getDevices({}, function (hidDevices) {
+                            // TODO This needs to be smarter about selecting a device to reset
+                            resolve(hidDevices[0].deviceId);
+                        });
+                    }).then(function (deviceId) {
+                            var client = clientModule.findByDeviceId(deviceId);
+                            return client.recoveryDevice();
+                        });
+
+                    return true;
+
+                case 'WordAck':
+                    new Promise(function (resolve) {
+                        chrome.hid.getDevices({}, function (hidDevices) {
+                            // TODO This needs to be smarter about selecting a device to reset
+                            resolve(hidDevices[0].deviceId);
+                        });
+                    }).then(function (deviceId) {
+                            var client = clientModule.findByDeviceId(deviceId);
+                            return client.wordAck(extend({}, request));
+                        });
+
+                    return true;
+
+                case 'CharacterAck':
+                    new Promise(function (resolve) {
+                        chrome.hid.getDevices({}, function (hidDevices) {
+                            // TODO This needs to be smarter about selecting a device to reset
+                            resolve(hidDevices[0].deviceId);
+                        });
+                    }).then(function (deviceId) {
+                            var client = clientModule.findByDeviceId(deviceId);
+                            return client.characterAck(extend({}, request));
+                        });
+
+                    return true;
+
                 default:
                     sendResponse({
                         messageType: "Error",
@@ -145,7 +184,7 @@ chrome.runtime.onMessageExternal.addListener(
 function createClientForDevice(deviceTransport) {
     var client = clientModule.factory(deviceTransport);
     client.addListener('DeviceMessage', function onDeviceMessage(type, message) {
-        console.log('Sending message to ui:', message);
+        console.log('Sending %s message to ui: %o', type, message);
 
         chrome.runtime.sendMessage(
             keepKeyWalletId,
