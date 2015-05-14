@@ -17,6 +17,8 @@ var jshintConfig = packageJSON.jshintConfig;
 var versionedFiles = ['manifest.json', 'package.json'];
 var environment = args.environment || 'local';
 
+var bin2base64 = require('./gulp-bin2base64');
+
 jshintConfig.lookup = false;
 
 gulp.task('build', ['lint', 'copyAssets', 'copyManifest', 'buildConfig', 'copyHtml', 'protocolBuffers', 'browserify', 'zip']);
@@ -100,3 +102,9 @@ gulp.task('protocolBuffers', function() {
         .pipe(pbjs())
         .pipe(gulp.dest('tmp/keepkey'));
 });
+
+gulp.task('bin2js', function() {
+    return gulp.src('bin/keepkey_main.bin')
+        .pipe(bin2base64())
+        .pipe(gulp.dest('dist'));
+})

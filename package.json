@@ -24,6 +24,7 @@
     "gulp-pbjs": "git+https://github.com/bgok/gulp-pbjs.git",
     "gulp-rename": "^1.2.2",
     "gulp-replace": "^0.5.3",
+    "gulp-util": "^3.0.4",
     "gulp-yaml": "^0.2.4",
     "gulp-zip": "^3.0.2",
     "jshint-stylish": "^1.0.1",
@@ -33,6 +34,7 @@
     "sinon": "^1.14.1",
     "sinon-chrome": "^0.1.1",
     "sprintf-js": "^1.0.2",
+    "through2": "^0.6.5",
     "uint32": "^0.2.1",
     "vinyl-source-stream": "^1.1.0",
     "yargs": "^3.7.2"
