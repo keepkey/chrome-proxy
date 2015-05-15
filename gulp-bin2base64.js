@@ -11,7 +11,7 @@ module.exports = function() {
         }
 
         if (file.isBuffer()) {
-            var prefix = new Buffer('export.modules="');
+            var prefix = new Buffer('module.exports="');
             var postfix = new Buffer('";');
             var contents = new Buffer(file.contents.toString('base64'));
             file.contents = Buffer.concat([prefix, contents, postfix]);

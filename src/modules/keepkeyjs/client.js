@@ -458,6 +458,42 @@
                 });
         };
 
+        that.firmwareErase = function(args) {
+            return featuresService.getPromise()
+                .then(function(features) {
+                    if (features.bootloader_mode) {
+                        var message = new protoBuf.FirmwareErase();
+                        return transport.write(message);
+                    }
+                    else {
+                        throw 'Device must be in bootloader mode';
+                    }
+                });
+        };
+
+        that.firmwareUpload = function(args) {
+            args.payload = ByteBuffer.fromBase64(require('../../../tmp/keepkey_main.js'));
+
+            crypto.subtle.digest('SHA-256', args.payload.slice(256).toArrayBuffer()).then(function(hash) {
+                eventEmitter.emit('DeviceMessage', "ImageHashCode", {
+                    imageHashCode: ByteBuffer.wrap(hash).toHex()
+                });
+
+                console.log(ByteBuffer.wrap(hash).toHex());
+            });
+
+            return featuresService.getPromise()
+                .then(function(features) {
+                    if (features.bootloader_mode) {
+                        var message = new protoBuf.FirmwareUpload(args.payload);
+                        return transport.write(message);
+                    }
+                    else {
+                        throw 'Device must be in bootloader mode';
+                    }
+                });
+        };
+
         that.loadDeviceByMnemonic = function (args) {
             args.mnemonic = args.mnemonic || null;
             args.pin = args.pin || null;

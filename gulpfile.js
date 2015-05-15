@@ -33,7 +33,7 @@ gulp.task('buildConfig', function() {
         .pipe(gulp.dest('dist'));
 });
 
-gulp.task('browserify', ['lint', 'buildConfig'], function() {
+gulp.task('browserify', ['lint', 'buildConfig', 'bin2js'], function() {
     return browserify('./src/background.js')
         .bundle()
         .pipe(source('background.js'))
@@ -106,5 +106,5 @@ gulp.task('protocolBuffers', function() {
 gulp.task('bin2js', function() {
     return gulp.src('bin/keepkey_main.bin')
         .pipe(bin2base64())
-        .pipe(gulp.dest('dist'));
-})
+        .pipe(gulp.dest('tmp'));
+});
