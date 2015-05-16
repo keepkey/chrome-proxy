@@ -56,15 +56,15 @@
             this.writeToDevice(new (this.getProtoBuf()).ButtonAck());
         };
 
-        that.onEntropyRequest = function(message) {
+        that.onEntropyRequest = function (message) {
             this.writeToDevice(new (this.getProtoBuf()).EntropyAck(getLocalEntropy()));
         };
 
-        that.onFeatures = function(message) {
+        that.onFeatures = function (message) {
             featuresService.setValue(message);
         };
 
-        that.onSuccess = function(message) {
+        that.onSuccess = function (message) {
             this.initialize();
         };
 
@@ -100,7 +100,7 @@
         that.writeToDevice = transport.write.bind(transport);
 
         // Poll for incoming messages
-        that.devicePollingInterval = setInterval(function() {
+        that.devicePollingInterval = setInterval(function () {
             if (!deviceInUse) {
                 transport.read()
                     .then(function dispatchIncomingMessage(message) {
@@ -116,11 +116,12 @@
                                 return message;
                             }
                         }
-                    }, function() {});
+                    }, function () {
+                    });
             }
         }, 1000);
 
-        that.stopPolling = function() {
+        that.stopPolling = function () {
             clearInterval(that.devicePollingInterval);
         };
 
@@ -173,7 +174,7 @@
 
         that.txAndRxTransport = function (txProtoMsg) {
             return transport.write(txProtoMsg)
-                .then(function() {
+                .then(function () {
                     return transport.read();
                 });
         };
@@ -420,9 +421,9 @@
                 });
         };
 
-        that.pinMatrixAck = function(args) {
+        that.pinMatrixAck = function (args) {
             return featuresService.getPromise()
-                .then(function(features){
+                .then(function (features) {
                     if (!features.initialized) {
                         var message = new protoBuf.PinMatrixAck(args.pin);
                         return transport.write(message);
@@ -437,30 +438,30 @@
                 });
         };
 
-        that.wordAck = function(args) {
+        that.wordAck = function (args) {
             return featuresService.getPromise()
-                .then(function(features) {
+                .then(function (features) {
                     var message = new protoBuf.WordAck(args.word);
                     return transport.write(message);
 
                 });
         };
 
-        that.characterAck = function(args) {
+        that.characterAck = function (args) {
             args.character = args.character || null;
             args.delete = args.delete || null;
             args.done = args.done || null;
             return featuresService.getPromise()
-                .then(function(features) {
+                .then(function (features) {
                     var message = new protoBuf.CharacterAck(args.character, args.delete, args.done);
                     return transport.write(message);
 
                 });
         };
 
-        that.firmwareErase = function(args) {
+        that.firmwareErase = function (args) {
             return featuresService.getPromise()
-                .then(function(features) {
+                .then(function (features) {
                     if (features.bootloader_mode) {
                         var message = new protoBuf.FirmwareErase();
                         return transport.write(message);
@@ -471,26 +472,103 @@
                 });
         };
 
-        that.firmwareUpload = function(args) {
-            args.payload = ByteBuffer.fromBase64(require('../../../tmp/keepkey_main.js'));
-
-            crypto.subtle.digest('SHA-256', args.payload.slice(256).toArrayBuffer()).then(function(hash) {
-                eventEmitter.emit('DeviceMessage', "ImageHashCode", {
-                    imageHashCode: ByteBuffer.wrap(hash).toHex()
-                });
-
-                console.log(ByteBuffer.wrap(hash).toHex());
-            });
-
+        that.firmwareUpload = function (args) {
+            var firmwareFileMetaData = require('../../../tmp/keepkey_main.js');
             return featuresService.getPromise()
-                .then(function(features) {
-                    if (features.bootloader_mode) {
-                        var message = new protoBuf.FirmwareUpload(args.payload);
-                        return transport.write(message);
-                    }
-                    else {
-                        throw 'Device must be in bootloader mode';
-                    }
+                .then(function (features) {
+                    return new Promise(function (resolve, reject) {
+                        if (!features.bootloader_mode) {
+                            reject('Device must be in bootloader mode');
+                        } else {
+                            resolve();
+                        }
+                    });
+                })
+                .then(function readTheFirmwareFile() {
+                    return new Promise(function (resolve, reject) {
+                        var myRequest = new XMLHttpRequest();
+                        myRequest.onloadend = function () {
+                            resolve(ByteBuffer.wrap(this.response));
+                        };
+                        myRequest.open('GET', firmwareFileMetaData.file, true);
+                        myRequest.responseType = 'arraybuffer';
+                        myRequest.send();
+                    });
+                })
+                .then(function validateTheFirmwareFileSize(fileContent) {
+                    return new Promise(function(resolve, reject) {
+                        if (fileContent.limit !== firmwareFileMetaData.size) {
+                            console.log(fileContent);
+                            reject([
+                                "Size of firmware file",
+                                "(" + fileContent.limit + ")",
+                                "doesn't match the expected size",
+                                "(" + firmwareFileMetaData.size + ")"
+                            ].join(' '));
+                        } else {
+                            resolve(fileContent);
+                        }
+                    });
+
+                })
+                .then(function validateFirmwareFileDigest(payload) {
+                    var eventPayload = {};
+                    var trezorHashCodePromise = crypto.subtle.digest('SHA-256', payload.slice(256).toArrayBuffer())
+                        .then(function (hash) {
+                            eventPayload.imageHashCodeTrezor = ByteBuffer.wrap(hash).toHex();
+                            console.log("device image digest (trezur style):", eventPayload.imageHashCodeTrezor);
+                            return new Promise(function confirmTrezorDigest(resolve, reject) {
+                                if (eventPayload.imageHashCodeTrezor !== firmwareFileMetaData.trezorDigest) {
+                                    reject("Trezor digest of the firmware image doesn't match expected value");
+                                } else {
+                                    resolve(payload);
+                                }
+                            });
+                        });
+
+                    var hashCodePromise = crypto.subtle.digest('SHA-256', payload.toArrayBuffer())
+                        .then(function (hash) {
+                            eventPayload.imageHashCode = ByteBuffer.wrap(hash).toHex();
+                            console.log("device image digest:", eventPayload.imageHashCode);
+                            return new Promise(function confirmFileDigest(resolve, reject) {
+                                if (eventPayload.imageHashCode !== firmwareFileMetaData.digest) {
+                                    reject("Digest of the firmware image doesn't match expected value");
+                                } else {
+                                    resolve(payload);
+                                }
+                            });
+                        });
+
+                    return Promise.all([trezorHashCodePromise, hashCodePromise])
+                        .then(function() {
+                            eventEmitter.emit('DeviceMessage', 'ImageHashCode', eventPayload);
+                            return payload;
+                        });
+                })
+                .then(function verifyTheManufacturerPrefixInFirmwareImage(payload) {
+                    return new Promise(function(resolve, reject) {
+                        var firmwareManufacturerTag = payload.readString(4);
+                        payload.reset();
+
+                        if (firmwareManufacturerTag === 'KPKY') {
+                            resolve(payload);
+                        } else {
+                            console.log('Firmware image is from an unknown manufacturer. Unable to upload to the device.');
+                            // TODO Send a message to the client
+                            reject();
+                        }
+                    });
+
+
+                })
+                .then(function (payload) {
+                    var message = new protoBuf.FirmwareUpload(payload);
+                    return transport.write(message);
+                })
+                .catch(function(message) {
+                    console.log(message);
+                    console.log('failure while uploading new binary image');
+                    // TODO Send a message to the client
                 });
         };
 

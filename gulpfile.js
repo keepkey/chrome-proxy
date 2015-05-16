@@ -16,12 +16,13 @@ var pbjs = require('gulp-pbjs');
 var jshintConfig = packageJSON.jshintConfig;
 var versionedFiles = ['manifest.json', 'package.json'];
 var environment = args.environment || 'local';
+var firmwareFilename = args.firmware || 'bin/keepkey_main.bin';
 
-var bin2base64 = require('./gulp-bin2base64');
+var fileMetaData2Json = require('./gulp-fileMetaData2Json');
 
 jshintConfig.lookup = false;
 
-gulp.task('build', ['lint', 'copyAssets', 'copyManifest', 'buildConfig', 'copyHtml', 'protocolBuffers', 'browserify', 'zip']);
+gulp.task('build', ['zip']);
 
 gulp.task('clean', function (cb) {
     del(['dist', '*.zip', 'tmp'], cb);
@@ -33,7 +34,7 @@ gulp.task('buildConfig', function() {
         .pipe(gulp.dest('dist'));
 });
 
-gulp.task('browserify', ['lint', 'buildConfig', 'bin2js'], function() {
+gulp.task('browserify', ['lint', 'protocolBuffers', 'buildConfig', 'bin2js'], function() {
     return browserify('./src/background.js')
         .bundle()
         .pipe(source('background.js'))
@@ -55,6 +56,11 @@ gulp.task('copyAssets', function() {
         .pipe(gulp.dest('dist/images'));
 });
 
+gulp.task('copyFirmwareImage', function() {
+    return gulp.src(firmwareFilename)
+        .pipe(gulp.dest('dist'));
+});
+
 gulp.task('bumpPatch', function () {
     return gulp.src(versionedFiles)
         .pipe(bump({type: 'patch'}))
@@ -73,7 +79,7 @@ gulp.task('bumpMajor', function () {
         .pipe(gulp.dest('./'));
 });
 
-gulp.task('zip', ['browserify', 'copyAssets', 'copyManifest', 'buildConfig'], function() {
+gulp.task('zip', ['browserify', 'copyAssets', 'copyManifest', 'buildConfig', 'copyFirmwareImage', 'copyHtml'], function() {
     return gulp.src('dist/**/*')
         .pipe(zip('keepkey-proxy-test.zip'))
         .pipe(gulp.dest('.'));
@@ -104,7 +110,9 @@ gulp.task('protocolBuffers', function() {
 });
 
 gulp.task('bin2js', function() {
-    return gulp.src('bin/keepkey_main.bin')
-        .pipe(bin2base64())
+    return gulp.src(firmwareFilename)
+        .pipe(fileMetaData2Json())
         .pipe(gulp.dest('tmp'));
 });
+
+module.exports = gulp;
