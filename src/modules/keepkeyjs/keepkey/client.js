@@ -23,56 +23,20 @@
 
     'use strict';
 
-    var client = require('../client.js'),
-        protoBuf = require('../../../../tmp/keepkey/messages.js'),
-        assert = require('assert');
+    var client = require('../client.js');
+    var protoBuf = require('../../../../tmp/keepkey/messages.js');
 
     module.exports.getProtoBuf = function () {
         return protoBuf;
     };
 
     module.exports.create = function (transport) {
+        var newClient = client.create(transport, protoBuf);
 
-        var that = client.create(transport, protoBuf);
-        var superRecoveryDevice = that.recoveryDevice;
-        var decorators = that._getDecorators();
-
-        that.getDeviceType = function () {
+        newClient.getDeviceType = function () {
             return client.KEEPKEY;
         };
 
-        that.recoveryDevice = function (args) {
-            args = args || {};
-            args.word_count = args.word_count || null;
-            args.passphrase_protection = args.passphrase_protection || null;
-            args.pin_protection = args.pin_protection || null;
-            args.language = args.language || null;
-            args.label = args.label || null;
-            args.enforce_wordlist = args.enforce_wordlist || true;
-            args.use_character_cipher = args.use_character_cipher || null;
-
-            if (!args.use_character_cipher) {
-
-                return superRecoveryDevice(args);
-
-            } else {
-
-                return that.getFeatures()
-                    .then(function (features) {
-                        assert(features.initialized === false);
-                    })
-                    .then(that._setDeviceInUse.bind(this, true))
-                    .then(that.call.bind(this, new protoBuf.RecoveryDevice(
-                        args.word_count, args.passphrase_protection, args.pin_protection,
-                        args.language, args.label, args.enforce_wordlist, args.use_character_cipher
-                    )))
-                    .then(decorators.deviceReady, decorators.deviceReady)
-                    .then(function (resp) {
-                        console.dir(resp);
-                    });
-            }
-        };
-
-        return that;
+        return newClient;
     };
 })();

@@ -49,28 +49,6 @@
     }
 
 
-    function defaultMixin() {
-        var that = {};  // create default ui mixin
-
-        that.onButtonRequest = function () {
-            this.writeToDevice(new (this.getProtoBuf()).ButtonAck());
-        };
-
-        that.onEntropyRequest = function (message) {
-            this.writeToDevice(new (this.getProtoBuf()).EntropyAck(getLocalEntropy()));
-        };
-
-        that.onFeatures = function (message) {
-            featuresService.setValue(message);
-        };
-
-        that.onSuccess = function (message) {
-            this.initialize();
-        };
-
-        return that;
-    }
-
     var clients = {},    // client pool
         clientTypes = {};  // client types used for client creation by type
 
@@ -91,27 +69,56 @@
 
     function clientMaker(transport, protoBuf) {
 
-        var that = {};
+        var client = {};
         var deviceInUse = false;
-        var decorators = {};
-        var eventEmitter = new EventEmitter2();
 
-        that.addListener = eventEmitter.addListener.bind(eventEmitter);
-        that.writeToDevice = transport.write.bind(transport);
+        client.eventEmitter = new EventEmitter2();
+        client.addListener = client.eventEmitter.addListener.bind(client.eventEmitter);
+        client.writeToDevice = transport.write.bind(transport);
+        client.protoBuf = protoBuf;
+
+        client.initialize = function () {
+            return client.writeToDevice(new client.protoBuf.Initialize());
+        };
+
+        client.wipeDevice = require('./clientActions/wipeDevice.js').bind(client);
+        client.resetDevice = require('./clientActions/resetDevice.js').bind(client);
+        client.recoveryDevice = require('./clientActions/recoveryDevice.js').bind(client);
+        client.pinMatrixAck = require('./clientActions/pinMatrixAck.js').bind(client);
+        client.wordAck = require('./clientActions/wordAck.js').bind(client);
+        client.characterAck = require('./clientActions/characterAck.js').bind(client);
+        client.firmwareErase = require('./clientActions/firmwareErase.js').bind(client);
+        client.firmwareUpload = require('./clientActions/firmwareUpload.js').bind(client);
+
+        client.onButtonRequest = function () {
+            client.writeToDevice(new client.protoBuf.ButtonAck());
+        };
+
+        client.onEntropyRequest = function (message) {
+            client.writeToDevice(new client.protoBuf.EntropyAck(getLocalEntropy()));
+        };
+
+        client.onFeatures = function (message) {
+            featuresService.setValue(message);
+        };
+
+        client.onSuccess = function (message) {
+            client.initialize();
+        };
 
         // Poll for incoming messages
-        that.devicePollingInterval = setInterval(function () {
+        client.devicePollingInterval = setInterval(function () {
             if (!deviceInUse) {
                 transport.read()
                     .then(function dispatchIncomingMessage(message) {
                         console.log('msg:', message);
                         if (message) {
 
-                            eventEmitter.emit('DeviceMessage', message.$type.name, hydrate(message));
+                            client.eventEmitter.emit('DeviceMessage', message.$type.name, hydrate(message));
 
                             var handler = 'on' + message.$type.name;
-                            if (that.hasOwnProperty(handler)) {
-                                return that[handler](message);
+                            if (client.hasOwnProperty(handler)) {
+                                return client[handler](message);
                             } else {
                                 return message;
                             }
@@ -121,541 +128,16 @@
             }
         }, 1000);
 
-        that.stopPolling = function () {
-            clearInterval(that.devicePollingInterval);
+        client.stopPolling = function () {
+            clearInterval(client.devicePollingInterval);
         };
 
-        that._setDeviceInUse = function (status) {
-            return new Promise(function (resolve) {
-                if (status) {
-                    assert(!deviceInUse);
-                }
-
-                deviceInUse = status;
-                resolve(deviceInUse);
-            });
-        };
-
-        that._getDecorators = function () {
-            return decorators;
-        };
-
-        that.getDeviceId = function () {
-            return featuresService.getPromise()
-                .then(function (features) {
-                    return features.device_id;
-                });
-        };
-
-        that.getProtoBuf = function () {
-            return protoBuf;
-        };
-
-        that.call = function (txProtoMsg) {
-            return that.txAndRxTransport(txProtoMsg)
-                .then(function (rxProtoMsg) {
-                    console.log('rxProtoMsg:', rxProtoMsg);
-                    var handler = rxProtoMsg.$type.name;
-
-                    console.log('handler:', handler);
-                    if (that.hasOwnProperty('on' + handler)) {
-                        return that['on' + handler](rxProtoMsg)
-                            .then(function (handlerTxProtoMsg) {
-                                return that.call(handlerTxProtoMsg);
-                            });
-                    } else {
-                        return rxProtoMsg;
-                    }
-                })
-                .catch(function () {
-                    console.error('failure', arguments);
-                });
-        };
-
-        that.txAndRxTransport = function (txProtoMsg) {
-            return transport.write(txProtoMsg)
-                .then(function () {
-                    return transport.read();
-                });
-        };
-
-        that.cancel = function () {
-            return transport.write(new protoBuf.Cancel())
-                .then(decorators.deviceReady);
-        };
-
-        that.initialize = function () {
-            return that._setDeviceInUse(true)
-                .then(transport.write.bind(this, new protoBuf.Initialize()))
-                .then(decorators.deviceReady)
-                .then(featuresService.getPromise);
-        };
-
-        that.getPublicNode = function (address_n) {
-            return that._setDeviceInUse(true)
-                .then(that.call.bind(this, new protoBuf.GetPublicKey(convertPrime(address_n))))
-                .then(decorators.deviceReady)
-                .then(decorators.expect('PublicKey'));
-        };
-
-        that.getAddress = function (args) {
-            args = args || {};
-            args.address_n = args.address_n || [];
-            args.coin_name = args.coin_name || null;
-            args.show_display = args.show_display || null;
-            args.multisig = args.multisig || null;
-
-            return that._setDeviceInUse(true)
-                .then(that.call.bind(this, new protoBuf.GetAddress(
-                    args.address_n, args.coin_name, args.show_display, args.multisig
-                )))
-                .then(decorators.deviceReady)
-                .then(decorators.expect('Address'))
-                .then(decorators.field('address'));
-        };
-
-        that.getEntropy = function (size) {
-            return that.call(new protoBuf.GetEntropy(size))
-                .then(decorators.expect('Entropy'))
-                .then(decorators.field('entropy'));
-        };
-
-        that.ping = function (args) {
-            args.message = args.message || '';
-            args.button_protection = args.button_protection || false;
-            args.pin_protection = args.pin_protection || false;
-            args.passphrase_protection = args.passphrase_protection || false;
-
-            return that._setDeviceInUse(true)
-                .then(that.call.bind(this, new protoBuf.Ping(
-                    args.message, args.button_protection, args.pin_protection, args.passphrase_protection
-                )))
-                .then(decorators.deviceReady)
-                .then(decorators.expect('Success'))
-                .then(decorators.field('message'));
-        };
-
-        that.applySettings = function (args) {
-            args.language = args.language || null;
-            args.label = args.label || null;
-            args.use_passphrase = args.use_passphrase || null;
-
-            return that.call(new protoBuf.ApplySettings(
-                args.language, args.label, args.use_passphrase
-            ))
-                .then(decorators.expect('Success'))
-                .then(decorators.field('message'));
-        };
-
-        that.clearSession = function () {
-            return that.call(new protoBuf.ClearSession())
-                .then(decorators.expect('Success'))
-                .then(decorators.field('message'));
-        };
-
-        that.changePin = function (remove) {
-            return that._setDeviceInUse(true)
-                .then(that.call.bind(this, new protoBuf.ChangePin(remove)))
-                .then(decorators.deviceReady, decorators.deviceReady)
-                .then(decorators.expect('Success'))
-                .then(decorators.field('message'))
-                .then(decorators.refreshFeatures);
-        };
-
-        that.signMessage = function (args) {
-            args.address_n = args.address_n || [];
-            args.message = args.message || '';
-            args.coin_name = args.coin_name || null;
-
-            return that.call(new protoBuf.SignMessage(
-                convertPrime(args.address_n), ByteBuffer.wrap(args.message.normalize('NFC')), args.coin_name
-            ))
-                .then(decorators.expect('MessageSignature'));
-        };
-
-        that.verifyMessage = function (args) {
-            var messageBB = null;
-
-            args.address = args.address || null;
-            args.signature = args.signature || null;
-            args.message = args.message || null;
-
-            if (args.message !== null) {
-                messageBB = ByteBuffer.wrap(args.message.normalize('NFC'));
-            }
-
-            return that.call(new protoBuf.VerifyMessage(
-                args.address, args.signature, messageBB
-            ))
-                .then(function (rxProtoMsg) {
-                    if (rxProtoMsg.$type.name === 'Success') {
-                        return true;
-                    } else {
-                        return false;
-                    }
-                });
-
-        };
-
-        that.encryptMessage = function (args) {
-            args.pubkey = args.pubkey || null;
-            args.message = args.message || null;
-            args.display_only = args.display_only || null;
-            args.address_n = args.address_n || [];
-            args.coin_name = args.coin_name || null;
-
-            return that.call(new protoBuf.EncryptMessage(
-                args.pubkey, ByteBuffer.wrap(args.message.normalize('NFC')), args.display_only,
-                convertPrime(args.address_n), args.coin_name
-            ))
-                .then(decorators.expect('EncryptedMessage'));
-        };
-
-        that.decryptMessage = function (args) {
-            args.address_n = args.address_n || [];
-            args.nonce = args.nonce || null;
-            args.message = args.message || null;
-            args.hmac = args.hmac || null;
-
-            return that.call(new protoBuf.DecryptMessage(
-                convertPrime(args.address_n), args.nonce, args.message, args.hmac
-            ))
-                .then(decorators.expect('DecryptedMessage'));
-        };
-
-        that.encryptKeyValue = function (args) {
-            args.address_n = args.address_n || [];
-            args.key = args.key || null;
-            args.value = args.value || null;
-            args.ask_on_encrypt = args.ask_on_encrypt || true;
-
-            return that.call(new protoBuf.CipherKeyValue(
-                convertPrime(args.address_n), args.key, args.value, true, args.ask_on_encrypt, true
-            ))
-                .then(decorators.expect('CipheredKeyValue'))
-                .then(decorators.field('value'));
-        };
-
-        that.decryptKeyValue = function (args) {
-            args.address_n = args.address_n || [];
-            args.key = args.key || null;
-            args.value = args.value || null;
-            args.ask_on_decrypt = args.ask_on_decrypt || true;
-
-            return that.call(new protoBuf.CipherKeyValue(
-                convertPrime(args.address_n), args.key, args.value, false, true, args.ask_on_decrypt
-            ))
-                .then(decorators.expect('CipheredKeyValue'))
-                .then(decorators.field('value'));
-        };
-
-        that.estimateTxSize = function (args) {
-            args.outputs_count = args.outputs_count || 0;
-            args.inputs_count = args.inputs_count || 0;
-            args.coin_name = args.coin_name || null;
-
-            return that.call(new protoBuf.EstimateTxSize(args.outputs_count, args.inputs_count, args.coin_name))
-                .then(decorators.expect('TxSize'))
-                .then(decorators.field('tx_size'));
-        };
-
-        that.wipeDevice = function () {
-            return that._setDeviceInUse(true)
-                .then(transport.write.bind(this, new protoBuf.WipeDevice()))
-                .then(decorators.deviceReady);
-        };
-
-        that.resetDevice = function (args) {
-            args = args || {};
-            args.display_random = args.display_random || null;
-            args.strength = args.strength || null;
-            args.passphrase_protection = args.passphrase_protection || null;
-            args.pin_protection = args.pin_protection || null;
-            args.language = args.language || null;
-            args.label = args.label || null;
-
-            return featuresService.getPromise()
-                .then(function (features) {
-                    if (!features.initialized) {
-                        var message = new protoBuf.ResetDevice(
-                            args.display_random, args.strength, args.passphrase_protection,
-                            args.pin_protection, args.language, args.label
-                        );
-                        return transport.write(message);
-                    } else {
-                        return Promise.reject("Error: Expected features.initialized to be false: ", features);
-                    }
-                })
-                .then(decorators.deviceReady)
-                .catch(function () {
-                    console.error('failure', arguments);
-                });
-        };
-
-        that.recoveryDevice = function (args) {
-            args = args || {};
-
-            args.passphrase_protection = args.passphrase_protection || false;
-            args.pin_protection = args.pin_protection || true;
-            args.language = args.language || null;
-            args.label = args.label || null;
-            args.word_count = args.word_count || 12;
-            args.enforce_wordlist = args.enforce_wordlist || false;
-            args.use_character_cipher = args.use_character_cipher || true;
-
-            return featuresService.getPromise()
-                .then(function (features) {
-                    if (!features.initialized) {
-                        var message = new protoBuf.RecoveryDevice(
-                            args.word_count, args.passphrase_protection, args.pin_protection,
-                            args.language, args.label, args.enforce_wordlist, args.use_character_cipher
-                        );
-                        return transport.write(message);
-                    } else {
-                        return Promise.reject("Error: Expected features.initialized to be false: ", features);
-                    }
-                })
-                .then(decorators.deviceReady)
-                .catch(function () {
-                    console.error('failure', arguments);
-                });
-        };
-
-        that.pinMatrixAck = function (args) {
-            return featuresService.getPromise()
-                .then(function (features) {
-                    if (!features.initialized) {
-                        var message = new protoBuf.PinMatrixAck(args.pin);
-                        return transport.write(message);
-                    } else {
-                        return Promise.reject("Error: Expected features.initialized to be false: ", features);
-                    }
-
-                })
-                .then(decorators.deviceReady)
-                .catch(function () {
-                    console.error('failure', arguments);
-                });
-        };
-
-        that.wordAck = function (args) {
-            return featuresService.getPromise()
-                .then(function (features) {
-                    var message = new protoBuf.WordAck(args.word);
-                    return transport.write(message);
-
-                });
-        };
-
-        that.characterAck = function (args) {
-            args.character = args.character || null;
-            args.delete = args.delete || null;
-            args.done = args.done || null;
-            return featuresService.getPromise()
-                .then(function (features) {
-                    var message = new protoBuf.CharacterAck(args.character, args.delete, args.done);
-                    return transport.write(message);
-
-                });
-        };
-
-        that.firmwareErase = function (args) {
-            return featuresService.getPromise()
-                .then(function (features) {
-                    if (features.bootloader_mode) {
-                        var message = new protoBuf.FirmwareErase();
-                        return transport.write(message);
-                    }
-                    else {
-                        throw 'Device must be in bootloader mode';
-                    }
-                });
-        };
-
-        that.firmwareUpload = function (args) {
-            var firmwareFileMetaData = require('../../../tmp/keepkey_main.js');
-            return featuresService.getPromise()
-                .then(function (features) {
-                    return new Promise(function (resolve, reject) {
-                        if (!features.bootloader_mode) {
-                            reject('Device must be in bootloader mode');
-                        } else {
-                            resolve();
-                        }
-                    });
-                })
-                .then(function readTheFirmwareFile() {
-                    return new Promise(function (resolve, reject) {
-                        var myRequest = new XMLHttpRequest();
-                        myRequest.onloadend = function () {
-                            resolve(ByteBuffer.wrap(this.response));
-                        };
-                        myRequest.open('GET', firmwareFileMetaData.file, true);
-                        myRequest.responseType = 'arraybuffer';
-                        myRequest.send();
-                    });
-                })
-                .then(function validateTheFirmwareFileSize(fileContent) {
-                    return new Promise(function(resolve, reject) {
-                        if (fileContent.limit !== firmwareFileMetaData.size) {
-                            console.log(fileContent);
-                            reject([
-                                "Size of firmware file",
-                                "(" + fileContent.limit + ")",
-                                "doesn't match the expected size",
-                                "(" + firmwareFileMetaData.size + ")"
-                            ].join(' '));
-                        } else {
-                            resolve(fileContent);
-                        }
-                    });
-
-                })
-                .then(function validateFirmwareFileDigest(payload) {
-                    var eventPayload = {};
-                    var trezorHashCodePromise = crypto.subtle.digest('SHA-256', payload.slice(256).toArrayBuffer())
-                        .then(function (hash) {
-                            eventPayload.imageHashCodeTrezor = ByteBuffer.wrap(hash).toHex();
-                            console.log("device image digest (trezur style):", eventPayload.imageHashCodeTrezor);
-                            return new Promise(function confirmTrezorDigest(resolve, reject) {
-                                if (eventPayload.imageHashCodeTrezor !== firmwareFileMetaData.trezorDigest) {
-                                    reject("Trezor digest of the firmware image doesn't match expected value");
-                                } else {
-                                    resolve(payload);
-                                }
-                            });
-                        });
-
-                    var hashCodePromise = crypto.subtle.digest('SHA-256', payload.toArrayBuffer())
-                        .then(function (hash) {
-                            eventPayload.imageHashCode = ByteBuffer.wrap(hash).toHex();
-                            console.log("device image digest:", eventPayload.imageHashCode);
-                            return new Promise(function confirmFileDigest(resolve, reject) {
-                                if (eventPayload.imageHashCode !== firmwareFileMetaData.digest) {
-                                    reject("Digest of the firmware image doesn't match expected value");
-                                } else {
-                                    resolve(payload);
-                                }
-                            });
-                        });
-
-                    return Promise.all([trezorHashCodePromise, hashCodePromise])
-                        .then(function() {
-                            eventEmitter.emit('DeviceMessage', 'ImageHashCode', eventPayload);
-                            return payload;
-                        });
-                })
-                .then(function verifyTheManufacturerPrefixInFirmwareImage(payload) {
-                    return new Promise(function(resolve, reject) {
-                        var firmwareManufacturerTag = payload.readString(4);
-                        payload.reset();
-
-                        if (firmwareManufacturerTag === 'KPKY') {
-                            resolve(payload);
-                        } else {
-                            console.log('Firmware image is from an unknown manufacturer. Unable to upload to the device.');
-                            // TODO Send a message to the client
-                            reject();
-                        }
-                    });
-
-
-                })
-                .then(function (payload) {
-                    var message = new protoBuf.FirmwareUpload(payload);
-                    return transport.write(message);
-                })
-                .catch(function(message) {
-                    console.log(message);
-                    console.log('failure while uploading new binary image');
-                    // TODO Send a message to the client
-                });
-        };
-
-        that.loadDeviceByMnemonic = function (args) {
-            args.mnemonic = args.mnemonic || null;
-            args.pin = args.pin || null;
-            args.passphrase_protection = args.passphrase_protection || null;
-            args.language = args.language || null;
-            args.label = args.label || null;
-            args.skip_checksum = args.skip_checksum || null;
-
-            return that.call(new protoBuf.LoadDevice(
-                args.mnemonic.normalize('NFC'), null, args.pin, args.passphrase_protection,
-                args.language, args.label, args.skip_checksum
-            ))
-                .then(decorators.expect('Success'))
-                .then(decorators.field('message'));
-        };
-
-        that.loadDeviceByXprv = function (args) {
-            var hdNode = null;
-
-            args.node = args.node || null;
-            args.pin = args.pin || null;
-            args.passphrase_protection = args.passphrase_protection || null;
-            args.language = args.language || null;
-            args.label = args.label || null;
-
-            // copy hdnode information into protocol buffer object
-            hdNode = new protoBuf.HDNodeType();
-            hdNode.depth = args.node.depth;
-            hdNode.fingerprint = args.node.parentFingerprint;
-            hdNode.child_num = args.node.index;
-            hdNode.chain_code = args.node.chainCode;
-            hdNode.private_key = args.node.privKey.d.toBuffer();
-
-            return that.call(new protoBuf.LoadDevice(
-                null, hdNode, args.pin, args.passphrase_protection, args.language, args.label, null
-            ))
-                .then(decorators.expect('Success'))
-                .then(decorators.field('message'));
-        };
-
-        decorators.expect = function (msgClass) {
-            return function (rxProtoMsg) {
-                var rxProtoMsgClass = rxProtoMsg.$type.name;
-
-                if (rxProtoMsgClass !== msgClass) {
-                    throw {
-                        name: 'Error',
-                        message: sprintf('Got %s, expected %s.', rxProtoMsgClass, msgClass)
-                    };
-                }
-
-                return rxProtoMsg;
-            };
-        };
-
-        decorators.field = function (msgField) {
-            return function (rxProtoMsg) {
-                if (!rxProtoMsg.hasOwnProperty(msgField)) {
-                    throw {
-                        name: 'Error',
-                        message: sprintf('Message field "%s" not found in response.', msgField)
-                    };
-                }
-
-                return rxProtoMsg[msgField];
-            };
-        };
-
-        decorators.deviceReady = function (rxProtoMsg) {
-            that._setDeviceInUse(false);
-            return rxProtoMsg;
-        };
-
-        decorators.refreshFeatures = function (rxProtoMsg) {
-            that.initialize();
-            return rxProtoMsg;
-        };
-
-        that.initialize()
+        client.initialize()
             .catch(function () {
                 console.error('failure while initializing', arguments);
             });
 
-        return that;
+        return client;
     }
 
     module.exports.create = function (transport, messagesProtoBuf) {
@@ -663,9 +145,6 @@
 
         if (!clients.hasOwnProperty(transportDeviceId)) {
             clients[transportDeviceId] = clientMaker(transport, messagesProtoBuf);
-
-            // extend client with default mixin
-            extend(clients[transportDeviceId], defaultMixin());
         }
 
         return clients[transportDeviceId];

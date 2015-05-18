@@ -42,16 +42,16 @@
 
         function transportMaker(deviceId) {
 
-            var that = {},          // new transport object
+            var transport = {},          // new transport object
                 messageMap = null,    // message map that facilitates msg type and class lookup
                 protoBuf = null;      // protocol buffers for transport
 
             function parseMsg(msgType, msgBB) {
-                var msgClass = that.getMsgClass(msgType);
+                var msgClass = transport.getMsgClass(msgType);
                 return protoBuf[msgClass].decode(msgBB);
             }
 
-            that.setMessageMap = function (deviceType, proto) {
+            transport.setMessageMap = function (deviceType, proto) {
                 var msgClass = '', currentMsgClass = '';
 
                 if (!messageMaps.hasOwnProperty(deviceType)) {
@@ -74,7 +74,7 @@
                 protoBuf = proto;
             };
 
-            that.getMsgType = function (msgClass) {
+            transport.getMsgType = function (msgClass) {
                 if (!messageMap.msgClassToType.hasOwnProperty(msgClass)) {
                     throw {
                         name: 'Error',
@@ -85,7 +85,7 @@
                 }
             };
 
-            that.getMsgClass = function (msgType) {
+            transport.getMsgClass = function (msgType) {
                 if (!messageMap.msgTypeToClass.hasOwnProperty(msgType)) {
                     throw {
                         name: 'Error',
@@ -96,28 +96,28 @@
                 }
             };
 
-            that.getDeviceId = function () {
+            transport.getDeviceId = function () {
                 return deviceId;
             };
 
-            that.getDeviceInfo = function () {
+            transport.getDeviceInfo = function () {
                 return {};
             };
 
-            that.write = function (txProtoMsg) {
+            transport.write = function (txProtoMsg) {
                 console.log('sending to device:', txProtoMsg.toString());
                 var msgAB = txProtoMsg.encodeAB(),
                     msgBB = ByteBuffer.concat([
                             ByteBuffer.wrap('##'),                                                                        // message start
-                            new Uint8Array(jspack.Pack('>HL', [that.getMsgType(txProtoMsg.$type.name), msgAB.byteLength])), // header
+                            new Uint8Array(jspack.Pack('>HL', [transport.getMsgType(txProtoMsg.$type.name), msgAB.byteLength])), // header
                             msgAB]                                                                                        // message
                     );
 
-                return that._write(msgBB);
+                return transport._write(msgBB);
             };
 
-            that.read = function () {
-                return that._read()
+            transport.read = function () {
+                return transport._read()
                     .then(function (rxMsg) {
                         var message = parseMsg(rxMsg.header.msgType, ByteBuffer.wrap(rxMsg.bufferBB.toArrayBuffer().slice(0, rxMsg.header.msgLength)));
                         console.log("received from device:", message);
@@ -125,7 +125,7 @@
                     });
             };
 
-            that._write = function () {
+            transport._write = function () {
                 console.error("Error: The protected _write() function is not implemented");
                 throw {
                     name: 'Error',
@@ -133,7 +133,7 @@
                 };
             };
 
-            that._read = function () {
+            transport._read = function () {
                 console.error("Error: The protected _read() function is not implemented");
                 throw {
                     name: 'Error',
@@ -141,7 +141,7 @@
                 };
             };
 
-            return that;
+            return transport;
 
         }
 
