@@ -31,6 +31,7 @@
     "jspack": "0.0.4",
     "mocha": "^2.2.4",
     "phantomjs": "^1.9.16",
+    "proxyquire": "^1.5.0",
     "sinon": "^1.14.1",
     "sinon-chrome": "^0.1.1",
     "sprintf-js": "^1.0.2",

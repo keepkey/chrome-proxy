@@ -1,5 +1,5 @@
 var firmwareFileMetaData = require('../../../../tmp/keepkey_main.js');
-var featuresService = require('../simpleGlobalStore.js');
+var featuresService = require('../featuresService.js');
 var ByteBuffer = require('bytebuffer');
 var crypto = window.crypto;
 

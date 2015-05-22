@@ -1,7 +1,7 @@
-var featuresService = require('../simpleGlobalStore.js');
+var featuresService = require('../featuresService.js');
 var client;
 
-module.exports = function eraseFirmware(args) {
+module.exports = function eraseFirmware() {
     client = this;
     return featuresService.getPromise()
         .then(function (features) {

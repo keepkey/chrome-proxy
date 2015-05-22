@@ -25,14 +25,13 @@
 
     var ByteBuffer = require('bytebuffer');
     var extend = require('extend-object');
-    var assert = require('assert');
     var uint32 = require('uint32');
     // bip39 = require('bip39'),
     var sprintf = require("sprintf-js").sprintf;
     var EventEmitter2 = require('eventemitter2').EventEmitter2;
     var hydrate = require('./hydrate.js');
     var crypto = window.crypto;
-    var featuresService = require('./simpleGlobalStore.js');
+    var featuresService = require('./featuresService.js');
 
     var KEEPKEY = 'KEEPKEY';
     var TREZOR = 'TREZOR';

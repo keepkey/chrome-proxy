@@ -1,4 +1,4 @@
-var featuresService = require('../simpleGlobalStore.js');
+var featuresService = require('../featuresService.js');
 var client;
 
 module.exports = function resetDevice(args) {
