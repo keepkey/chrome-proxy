@@ -164,7 +164,7 @@ chrome.runtime.onMessageExternal.addListener(
 
                     return true;
 
-                case 'FirmwareErase':
+                case 'FirmwareUpdate':
                     new Promise(function (resolve) {
                         chrome.hid.getDevices({}, function (hidDevices) {
                             // TODO This needs to be smarter about selecting a device to reset
@@ -172,20 +172,7 @@ chrome.runtime.onMessageExternal.addListener(
                         });
                     }).then(function (deviceId) {
                             var client = clientModule.findByDeviceId(deviceId);
-                            return client.firmwareErase(_.extend({}, request));
-                        });
-
-                    return true;
-
-                case 'FirmwareUpload':
-                    new Promise(function (resolve) {
-                        chrome.hid.getDevices({}, function (hidDevices) {
-                            // TODO This needs to be smarter about selecting a device to reset
-                            resolve(hidDevices[0].deviceId);
-                        });
-                    }).then(function (deviceId) {
-                            var client = clientModule.findByDeviceId(deviceId);
-                            return client.firmwareUpload({});
+                            return client.firmwareUpdate(_.extend({}, request));
                         });
 
                     return true;

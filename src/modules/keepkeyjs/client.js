@@ -89,7 +89,7 @@
         client.pinMatrixAck = require('./clientActions/pinMatrixAck.js').bind(client);
         client.wordAck = require('./clientActions/wordAck.js').bind(client);
         client.characterAck = require('./clientActions/characterAck.js').bind(client);
-        client.firmwareErase = require('./clientActions/firmwareErase.js').bind(client);
+        client.firmwareUpdate = require('./clientActions/firmwareErase.js').bind(client);
         client.firmwareUpload = require('./clientActions/firmwareUpload.js').bind(client);
 
         client.onButtonRequest = function () {
@@ -105,7 +105,11 @@
         };
 
         client.onSuccess = function (message) {
-            client.initialize();
+            if (message.message === "Firmware Erased") {
+                client.firmwareUpload();
+            } else {
+                client.initialize();
+            }
         };
 
         // Poll for incoming messages
