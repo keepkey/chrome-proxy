@@ -1,15 +1,21 @@
 var featuresService = require('../featuresService.js');
-var client;
+var _ = require('lodash');
 
-module.exports = function (args) {
+var client;
+var defaultOptions = {
+    character: '',
+    delete: false,
+    done: false
+};
+
+module.exports = function characterAck(args) {
     client = this;
 
-    args.character = args.character || null;
-    args.delete = args.delete || null;
-    args.done = args.done || null;
+    var options = _.extend({}, defaultOptions, args);
+
     return featuresService.getPromise()
         .then(function (features) {
-            var message = new client.protoBuf.CharacterAck(args.character, args.delete, args.done);
+            var message = new client.protoBuf.CharacterAck(options.character, options.delete, options.done);
             return client.writeToDevice(message);
         });
 };

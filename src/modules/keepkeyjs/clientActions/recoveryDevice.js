@@ -1,32 +1,36 @@
 var featuresService = require('../featuresService.js');
+var _ = require('lodash');
+
 var client;
+var defaultOptions = {
+    passphrase_protection: false,
+    pin_protection: true,
+    language: null,
+    label: null,
+    word_count: 12,
+    enforce_wordlist: false,
+    use_character_cipher: true
+};
 
 module.exports = function recoveryDevice(args) {
     client = this;
 
-    args = args || {};
-
-    args.passphrase_protection = args.passphrase_protection || false;
-    args.pin_protection = args.pin_protection || true;
-    args.language = args.language || null;
-    args.label = args.label || null;
-    args.word_count = args.word_count || 12;
-    args.enforce_wordlist = args.enforce_wordlist || false;
-    args.use_character_cipher = args.use_character_cipher || true;
+    var options = _.extend({}, defaultOptions, args);
 
     return featuresService.getPromise()
         .then(function (features) {
             if (!features.initialized) {
                 var message = new client.protoBuf.RecoveryDevice(
-                    args.word_count, args.passphrase_protection, args.pin_protection,
-                    args.language, args.label, args.enforce_wordlist, args.use_character_cipher
+                    options.word_count, options.passphrase_protection, options.pin_protection,
+                    options.language, options.label, options.enforce_wordlist, options.use_character_cipher
                 );
                 return client.writeToDevice(message);
             } else {
                 return Promise.reject("Expected features.initialized to be false", features);
             }
         })
-        .catch(function () {
+        .catch(function (failure) {
             console.error('deviceRecovery failed', arguments);
+            return Promise.reject(failure);
         });
 };

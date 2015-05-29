@@ -1,20 +1,19 @@
 var featuresService = require('../featuresService.js');
+var _ = require('lodash');
+
 var client;
+var defaultOptions = {
+    pin: ''
+};
 
 module.exports = function pinMatrixAck(args) {
     client = this;
 
+    var options = _.extend({}, defaultOptions, args);
+
     return featuresService.getPromise()
         .then(function (features) {
-            if (!features.initialized) {
-                var message = new client.protoBuf.PinMatrixAck(args.pin);
-                return client.writeToDevice(message);
-            } else {
-                return Promise.reject("Error: Expected features.initialized to be false: ", features);
-            }
-
-        })
-        .catch(function () {
-            console.error('failure', arguments);
+            var message = new client.protoBuf.PinMatrixAck(options.pin);
+            return client.writeToDevice(message);
         });
 };

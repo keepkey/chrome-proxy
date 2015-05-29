@@ -24,14 +24,15 @@
     'use strict';
 
     var ByteBuffer = require('bytebuffer');
-    var extend = require('extend-object');
     var uint32 = require('uint32');
     // bip39 = require('bip39'),
     var sprintf = require("sprintf-js").sprintf;
     var EventEmitter2 = require('eventemitter2').EventEmitter2;
     var hydrate = require('./hydrate.js');
-    var crypto = window.crypto;
+    var crypto = window.crypto; //TODO Make this work for node, too
     var featuresService = require('./featuresService.js');
+    //var winston = require('winston');
+    var bunyan = require('bunyan');
 
     var KEEPKEY = 'KEEPKEY';
     var TREZOR = 'TREZOR';
@@ -79,6 +80,8 @@
         client.initialize = function () {
             return client.writeToDevice(new client.protoBuf.Initialize());
         };
+
+        client.logger = bunyan.createLogger({name: 'play', level: 'debug'});
 
         client.wipeDevice = require('./clientActions/wipeDevice.js').bind(client);
         client.resetDevice = require('./clientActions/resetDevice.js').bind(client);

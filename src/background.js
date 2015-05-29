@@ -28,7 +28,7 @@ var clientModule = require('./modules/keepkeyjs/client.js');
 var transportModule = require('./modules/keepkeyjs/transport.js');
 var transportHidModule = require('./modules/keepkeyjs/transport_hid.js');
 var config = require('../dist/config.json');
-var extend = require('extend-object');
+var _ = require('lodash');
 var keepKeyWalletId = config.keepkeyWallet.applicationId;
 var clientEE = new EventEmitter2();
 
@@ -54,7 +54,7 @@ chrome.runtime.onMessageExternal.addListener(
                     });
                     return true;
                 case 'reset':
-                    var args = extend({
+                    var args = _.extend({
                         passphrase_protection: false,
                         pin_protection: true,
                         label: "My KeepKey Device"
@@ -74,7 +74,7 @@ chrome.runtime.onMessageExternal.addListener(
                     return true;
 
                 case 'PinMatrixAck':
-                    var renameThisArgs = extend({}, request);
+                    var renameThisArgs = _.extend({}, request);
 
                     new Promise(function (resolve) {
                         chrome.hid.getDevices({}, function (hidDevices) {
@@ -146,7 +146,7 @@ chrome.runtime.onMessageExternal.addListener(
                         });
                     }).then(function (deviceId) {
                             var client = clientModule.findByDeviceId(deviceId);
-                            return client.wordAck(extend({}, request));
+                            return client.wordAck(_.extend({}, request));
                         });
 
                     return true;
@@ -159,7 +159,7 @@ chrome.runtime.onMessageExternal.addListener(
                         });
                     }).then(function (deviceId) {
                             var client = clientModule.findByDeviceId(deviceId);
-                            return client.characterAck(extend({}, request));
+                            return client.characterAck(_.extend({}, request));
                         });
 
                     return true;
@@ -172,7 +172,7 @@ chrome.runtime.onMessageExternal.addListener(
                         });
                     }).then(function (deviceId) {
                             var client = clientModule.findByDeviceId(deviceId);
-                            return client.firmwareErase(extend({}, request));
+                            return client.firmwareErase(_.extend({}, request));
                         });
 
                     return true;

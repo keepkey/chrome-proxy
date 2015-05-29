@@ -1,10 +1,9 @@
 var proxyquire = require('proxyquire');
 var chai = require('chai');
 var sinon = require('sinon');
+var _ = require('lodash');
 
-var extend = require('extend-object');
-
-var assert = extend({}, chai.assert, sinon.assert);
+var assert = _.extend({}, chai.assert, sinon.assert);
 
 describe("client:eraseFirmware", function () {
     var mockFeatureService;
