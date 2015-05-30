@@ -29,160 +29,67 @@ var transportModule = require('./modules/keepkeyjs/transport.js');
 var transportHidModule = require('./modules/keepkeyjs/transport_hid.js');
 var config = require('../dist/config.json');
 var _ = require('lodash');
+var dispatcher = require('./messageDispatcher');
+
 var keepKeyWalletId = config.keepkeyWallet.applicationId;
 var clientEE = new EventEmitter2();
 
-var isDeviceConnected = function () {
-    return new Promise(function (resolve, reject, notify) {
-        chrome.hid.getDevices({}, function (hidDevices) {
-            resolve(!!hidDevices.length);
-        });
+dispatcher.when('deviceReady', function (client, request, sender, sendResponse) {
+    sendResponse({
+        messageType: "deviceReadyResponse",
+        result: !!client
     });
-};
+});
+
+dispatcher.when('reset', function (client, request) {
+    return client.resetDevice(request);
+});
+
+dispatcher.when('PinMatrixAck', function (client, request) {
+    return client.pinMatrixAck(request);
+});
+
+dispatcher.when('Initialize', function (client) {
+    return client.initialize();
+});
+
+dispatcher.when('Wipe', function (client) {
+    return client.wipeDevice();
+});
+
+dispatcher.when('Cancel', function (client) {
+    return client.cancel();
+});
+
+dispatcher.when('RecoveryDevice', function (client) {
+    return client.recoveryDevice();
+});
+
+dispatcher.when('WordAck', function (client, request) {
+    return client.wordAck(request);
+});
+
+dispatcher.when('CharacterAck', function (client, request) {
+    return client.characterAck(request);
+});
+
+dispatcher.when('FirmwareUpdate', function (client, request) {
+    return client.firmwareUpdate(request);
+});
+
+dispatcher.otherwise(function (request, response, sendResponse) {
+    sendResponse({
+        messageType: "Error",
+        result: "Unknown message type: " + request.messageType
+    });
+});
 
 chrome.runtime.onMessageExternal.addListener(
     function (request, sender, sendResponse) {
         console.log('client message:', request);
         if (sender.id === keepKeyWalletId) {
-            switch (request.messageType) {
-                case 'deviceReady':
-                    isDeviceConnected().then(function (isConnected) {
-                        sendResponse({
-                            messageType: "deviceReadyResponse",
-                            result: isConnected
-                        });
-                    });
-                    return true;
-                case 'reset':
-                    var args = _.extend({
-                        passphrase_protection: false,
-                        pin_protection: true,
-                        label: "My KeepKey Device"
-                    }, request);
-                    delete args.messageType;
-
-                    new Promise(function (resolve, reject, notify) {
-                        chrome.hid.getDevices({}, function (hidDevices) {
-                            // TODO This needs to be smarter about selecting a device to reset
-                            resolve(hidDevices[0].deviceId);
-                        });
-                    }).then(function (deviceId) {
-                            var client = clientModule.findByDeviceId(deviceId);
-                            return client.resetDevice(args);
-                        });
-
-                    return true;
-
-                case 'PinMatrixAck':
-                    var renameThisArgs = _.extend({}, request);
-
-                    new Promise(function (resolve) {
-                        chrome.hid.getDevices({}, function (hidDevices) {
-                            // TODO This needs to be smarter about selecting a device to reset
-                            resolve(hidDevices[0].deviceId);
-                        });
-                    }).then(function (deviceId) {
-                            var client = clientModule.findByDeviceId(deviceId);
-                            return client.pinMatrixAck(renameThisArgs);
-                        });
-
-                    return true;
-                case 'Initialize':
-                    new Promise(function (resolve) {
-                        chrome.hid.getDevices({}, function (hidDevices) {
-                            // TODO This needs to be smarter about selecting a device to reset
-                            resolve(hidDevices[0].deviceId);
-                        });
-                    }).then(function (deviceId) {
-                            var client = clientModule.findByDeviceId(deviceId);
-                            return client.initialize();
-                        });
-
-                    return true;
-                case 'Wipe':
-                    new Promise(function (resolve) {
-                        chrome.hid.getDevices({}, function (hidDevices) {
-                            // TODO This needs to be smarter about selecting a device to reset
-                            resolve(hidDevices[0].deviceId);
-                        });
-                    }).then(function (deviceId) {
-                            var client = clientModule.findByDeviceId(deviceId);
-                            return client.wipeDevice();
-                        });
-
-                    return true;
-
-                case 'Cancel':
-                    new Promise(function (resolve) {
-                        chrome.hid.getDevices({}, function (hidDevices) {
-                            // TODO This needs to be smarter about selecting a device to reset
-                            resolve(hidDevices[0].deviceId);
-                        });
-                    }).then(function (deviceId) {
-                            var client = clientModule.findByDeviceId(deviceId);
-                            return client.cancel();
-                        });
-
-                    return true;
-
-                case 'RecoveryDevice':
-                    new Promise(function (resolve) {
-                        chrome.hid.getDevices({}, function (hidDevices) {
-                            // TODO This needs to be smarter about selecting a device to reset
-                            resolve(hidDevices[0].deviceId);
-                        });
-                    }).then(function (deviceId) {
-                            var client = clientModule.findByDeviceId(deviceId);
-                            return client.recoveryDevice();
-                        });
-
-                    return true;
-
-                case 'WordAck':
-                    new Promise(function (resolve) {
-                        chrome.hid.getDevices({}, function (hidDevices) {
-                            // TODO This needs to be smarter about selecting a device to reset
-                            resolve(hidDevices[0].deviceId);
-                        });
-                    }).then(function (deviceId) {
-                            var client = clientModule.findByDeviceId(deviceId);
-                            return client.wordAck(_.extend({}, request));
-                        });
-
-                    return true;
-
-                case 'CharacterAck':
-                    new Promise(function (resolve) {
-                        chrome.hid.getDevices({}, function (hidDevices) {
-                            // TODO This needs to be smarter about selecting a device to reset
-                            resolve(hidDevices[0].deviceId);
-                        });
-                    }).then(function (deviceId) {
-                            var client = clientModule.findByDeviceId(deviceId);
-                            return client.characterAck(_.extend({}, request));
-                        });
-
-                    return true;
-
-                case 'FirmwareUpdate':
-                    new Promise(function (resolve) {
-                        chrome.hid.getDevices({}, function (hidDevices) {
-                            // TODO This needs to be smarter about selecting a device to reset
-                            resolve(hidDevices[0].deviceId);
-                        });
-                    }).then(function (deviceId) {
-                            var client = clientModule.findByDeviceId(deviceId);
-                            return client.firmwareUpdate(_.extend({}, request));
-                        });
-
-                    return true;
-
-                default:
-                    sendResponse({
-                        messageType: "Error",
-                        result: "Unknown message type: " + request.messageType
-                    });
-            }
+            dispatcher.dispatch(request, sender, sendResponse);
+            return true;
         } else {
             sendResponse({
                 messageType: "Error",
@@ -193,32 +100,33 @@ chrome.runtime.onMessageExternal.addListener(
     }
 );
 
+function sendMessageToUI(type, message) {
+    console.log('Sending "%s" message to ui: %o', type, message);
+    chrome.runtime.sendMessage(
+        keepKeyWalletId,
+        {
+            messageType: type,
+            message: message
+        }
+    );
+}
+
+module.exports = {
+    sendMessageToUI: sendMessageToUI
+};
 
 function createClientForDevice(deviceTransport) {
     var client = clientModule.factory(deviceTransport);
     client.addListener('DeviceMessage', function onDeviceMessage(type, message) {
-        console.log('Sending %s message to ui: %o', type, message);
-
-        chrome.runtime.sendMessage(
-            keepKeyWalletId,
-            {
-                messageType: type,
-                message: message
-            }
-        );
+        sendMessageToUI(type, message);
     });
+
     clientEE.emit('clientConnected');
 
-    chrome.runtime.sendMessage(
-        keepKeyWalletId,
-        {
-            messageType: "connected",
-            deviceType: client.getDeviceType(),
-            deviceId: deviceTransport.getDeviceId()
-        }
-    );
-
-    console.log("%s connected: %d", client.getDeviceType(), deviceTransport.getDeviceId());
+    sendMessageToUI("connected", {
+        deviceType: client.getDeviceType(),
+        deviceId: deviceTransport.getDeviceId()
+    });
 }
 
 chrome.hid.onDeviceAdded.addListener(function (hidDevice) {
