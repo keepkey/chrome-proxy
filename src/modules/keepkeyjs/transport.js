@@ -24,8 +24,9 @@
 
     'use strict';
 
-    var jspack = require('jspack').jspack,
-        ByteBuffer = require('bytebuffer');
+    var jspack = require('jspack').jspack;
+    var ByteBuffer = require('bytebuffer');
+    var logger = require('../../logger.js');
 
     module.exports.MSG_HEADER_START = '##';
     module.exports.MSG_HEADER_LENGTH = jspack.CalcLength('>HL');
@@ -105,7 +106,6 @@
             };
 
             transport.write = function (txProtoMsg) {
-                console.log('sending to device:', txProtoMsg.toString());
                 var msgAB = txProtoMsg.encodeAB(),
                     msgBB = ByteBuffer.concat([
                             ByteBuffer.wrap('##'),                                                                        // message start
@@ -120,13 +120,12 @@
                 return transport._read()
                     .then(function (rxMsg) {
                         var message = parseMsg(rxMsg.header.msgType, ByteBuffer.wrap(rxMsg.bufferBB.toArrayBuffer().slice(0, rxMsg.header.msgLength)));
-                        console.log("received from device:", message);
                         return message;
                     });
             };
 
             transport._write = function () {
-                console.error("Error: The protected _write() function is not implemented");
+                logger.error("Error: The protected _write() function is not implemented");
                 throw {
                     name: 'Error',
                     message: '_write not implemented.'
@@ -134,7 +133,7 @@
             };
 
             transport._read = function () {
-                console.error("Error: The protected _read() function is not implemented");
+                logger.error("Error: The protected _read() function is not implemented");
                 throw {
                     name: 'Error',
                     message: '_read not implemented.'

@@ -30,6 +30,7 @@ var transportHidModule = require('./modules/keepkeyjs/transport_hid.js');
 var config = require('../dist/config.json');
 var _ = require('lodash');
 var dispatcher = require('./messageDispatcher');
+var logger = require('./logger.js');
 
 var keepKeyWalletId = config.keepkeyWallet.applicationId;
 var clientEE = new EventEmitter2();
@@ -86,7 +87,7 @@ dispatcher.otherwise(function (request, response, sendResponse) {
 
 chrome.runtime.onMessageExternal.addListener(
     function (request, sender, sendResponse) {
-        console.log('client message:', request);
+        logger.info('UI --> Proxy: [%s] %j', request.messageType, request);
         if (sender.id === keepKeyWalletId) {
             dispatcher.dispatch(request, sender, sendResponse);
             return true;
@@ -101,7 +102,7 @@ chrome.runtime.onMessageExternal.addListener(
 );
 
 function sendMessageToUI(type, message) {
-    console.log('Sending "%s" message to ui: %o', type, message);
+    logger.info('proxy --> UI: [%s] %j', type, message);
     chrome.runtime.sendMessage(
         keepKeyWalletId,
         {
@@ -155,7 +156,7 @@ chrome.hid.onDeviceRemoved.addListener(function (deviceId) {
         }
     );
 
-    console.log("%s Disconnected: %d", deviceType, deviceId);
+    logger.info("%s Disconnected: %d", deviceType, deviceId);
 
 
 });

@@ -2,6 +2,7 @@ var firmwareFileMetaData = require('../../../../tmp/keepkey_main.js');
 var featuresService = require('../featuresService.js');
 var ByteBuffer = require('bytebuffer');
 var readFirmwareFile = require('./readFirmwareFile.js');
+var logger = require('../../../logger.js');
 
 var digest = require('../digest.js');
 
@@ -10,7 +11,7 @@ var client;
 var firmwareImageDigestPromise, firmwarePayloadDigestPromise;
 
 function checkDeviceInBootloaderMode(features) {
-    client.logger.debug('check for device in bootloader mode');
+    logger.debug('check for device in bootloader mode');
     return featuresService.getPromise()
         .then(function (features) {
             return new Promise(function (resolve, reject) {
@@ -25,7 +26,7 @@ function checkDeviceInBootloaderMode(features) {
 
 
 function validateFirmwareFileSize(fileContent) {
-    client.logger.debug('verifying the that file size is correct');
+    logger.debug('verifying the that file size is correct');
     return new Promise(function (resolve, reject) {
         if (fileContent.byteLength !== firmwareFileMetaData.size) {
             reject([
@@ -48,8 +49,8 @@ function getHashHex(payload) {
 
 function checkHash(hashName, hash, expectedHash) {
     var hexHash = ByteBuffer.wrap(hash).toHex();
-    client.logger.debug('verifying %s: expecting %s', hashName, expectedHash);
-    client.logger.info(hashName + ":", hexHash);
+    logger.debug('verifying %s: expecting %s', hashName, expectedHash);
+    logger.info(hashName + ":", hexHash);
     return new Promise(function confirmFileDigest(resolve, reject) {
         if (hexHash !== expectedHash) {
             reject(hashName, "doesn't match expected value");
@@ -60,7 +61,7 @@ function checkHash(hashName, hash, expectedHash) {
 }
 
 function validateFirmwareFileDigest(payload) {
-    client.logger.debug('verifying firmware hashcodes');
+    logger.debug('verifying firmware hashcodes');
 
     firmwarePayloadDigestPromise = getHashHex(payload.slice(256))
         .then(function (hash) {
@@ -84,7 +85,7 @@ function validateFirmwareFileDigest(payload) {
 }
 
 function verifyManufacturerPrefixInFirmwareImage(payload) {
-    client.logger.debug('verifying manufacturers prefix in firmware file');
+    logger.debug('verifying manufacturers prefix in firmware file');
     return new Promise(function (resolve, reject) {
         var firmwareManufacturerTag = ByteBuffer.wrap(payload.slice(0,4)).toString('utf8');
         if (firmwareManufacturerTag === 'KPKY') {
@@ -96,7 +97,7 @@ function verifyManufacturerPrefixInFirmwareImage(payload) {
 }
 
 function sendFirmwareToDevice(payload) {
-    client.logger.debug('sending firmware to device');
+    logger.debug('sending firmware to device');
     return firmwareImageDigestPromise.then(function(hash) {
         var message = new client.protoBuf.FirmwareUpload(
             ByteBuffer.wrap(hash), ByteBuffer.wrap(payload));
@@ -106,7 +107,7 @@ function sendFirmwareToDevice(payload) {
 
 module.exports = function firmwareUpload() {
     client = this;
-    client.logger.debug('starting firmware upload');
+    logger.debug('starting firmware upload');
     return checkDeviceInBootloaderMode()
         .then(readFirmwareFile)
         .then(validateFirmwareFileSize)
@@ -114,7 +115,7 @@ module.exports = function firmwareUpload() {
         .then(verifyManufacturerPrefixInFirmwareImage)
         .then(sendFirmwareToDevice)
         .catch(function (message) {
-            client.logger.error('failure while uploading new binary image:', message);
+            logger.error('failure while uploading new binary image:', message);
             // TODO Send a message to the client
             return Promise.reject(message);
         });

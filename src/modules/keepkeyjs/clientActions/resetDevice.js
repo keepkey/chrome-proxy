@@ -1,5 +1,6 @@
 var featuresService = require('../featuresService.js');
 var _ = require('lodash');
+var logger = require('../../../logger.js');
 
 var client;
 var defaultOptions = {
@@ -32,7 +33,7 @@ module.exports = function resetDevice(args) {
 
         })
         .catch(function(failure) {
-            console.error("ResetDevice failed:", failure);
+            logger.error("ResetDevice failed:", failure);
             return Promise.reject(failure);
         });
 };

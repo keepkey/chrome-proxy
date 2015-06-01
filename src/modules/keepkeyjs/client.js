@@ -31,13 +31,12 @@
     var hydrate = require('./hydrate.js');
     var crypto = window.crypto; //TODO Make this work for node, too
     var featuresService = require('./featuresService.js');
-    //var winston = require('winston');
-    var bunyan = require('bunyan');
 
     var KEEPKEY = 'KEEPKEY';
     var TREZOR = 'TREZOR';
     var DEVICES = require('./transport.js').DEVICES;
     var PRIME_DERIVATION_FLAG = 0x80000000;
+    var logger = require('../../logger.js');
 
     module.exports.KEEPKEY = KEEPKEY;
     module.exports.TREZOR = TREZOR;
@@ -74,14 +73,17 @@
 
         client.eventEmitter = new EventEmitter2();
         client.addListener = client.eventEmitter.addListener.bind(client.eventEmitter);
-        client.writeToDevice = transport.write.bind(transport);
+        //client.writeToDevice = transport.write.bind(transport);
+        client.writeToDevice = function(message) {
+            logger.info('proxy --> device: [%s] %j', message.$type.name, message);
+            return transport.write.apply(transport, arguments);
+        };
+
         client.protoBuf = protoBuf;
 
         client.initialize = function () {
             return client.writeToDevice(new client.protoBuf.Initialize());
         };
-
-        client.logger = bunyan.createLogger({name: 'play', level: 'debug'});
 
         client.wipeDevice = require('./clientActions/wipeDevice.js').bind(client);
         client.resetDevice = require('./clientActions/resetDevice.js').bind(client);
@@ -117,7 +119,7 @@
             if (!deviceInUse) {
                 transport.read()
                     .then(function dispatchIncomingMessage(message) {
-                        console.log('msg:', message);
+                        logger.info('device --> proxy: [%s] %j', message.$type.name, message);
                         if (message) {
 
                             client.eventEmitter.emit('DeviceMessage', message.$type.name, hydrate(message));
@@ -140,7 +142,7 @@
 
         client.initialize()
             .catch(function () {
-                console.error('failure while initializing', arguments);
+                logger.error('failure while initializing', arguments);
             });
 
         return client;

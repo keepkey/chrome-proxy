@@ -1,5 +1,6 @@
 var featuresService = require('../featuresService.js');
 var _ = require('lodash');
+var logger = require('../../../logger.js');
 
 var client;
 var defaultOptions = {
@@ -30,7 +31,7 @@ module.exports = function recoveryDevice(args) {
             }
         })
         .catch(function (failure) {
-            console.error('deviceRecovery failed', arguments);
+            logger.error('deviceRecovery failed', arguments);
             return Promise.reject(failure);
         });
 };

@@ -6,19 +6,22 @@ var _ = require('lodash');
 var assert = _.extend({}, chai.assert, sinon.assert);
 
 describe("client:resetDevice", function () {
-    var mockFeatureService;
     var resetDeviceObject;
     var mockClient;
     var mockMessageBuffer = {
         command: 'resetDevice'
     };
     var mockFeatures = {foo: 'bar'};
+    var mockLogger = {
+        error: sinon.stub()
+    };
 
     beforeEach(function () {
-        mockFeatureService = proxyquire('./resetDevice.js', {
+        proxyquire('./resetDevice.js', {
             '../featuresService.js': {
                 getPromise: sinon.stub().returns(Promise.resolve(mockFeatures))
-            }
+            },
+            '../../../logger.js': mockLogger
         });
 
         mockClient = {
@@ -29,6 +32,10 @@ describe("client:resetDevice", function () {
         };
 
         resetDeviceObject = require('./resetDevice.js').bind(mockClient);
+    });
+
+    afterEach(function() {
+        mockLogger.error.reset();
     });
 
     it('returns a promise', function () {
@@ -80,22 +87,16 @@ describe("client:resetDevice", function () {
         });
     });
     describe('when the device is initialized', function() {
-        var consoleErrorStub;
         beforeEach(function() {
             mockFeatures.initialized = true;
-            consoleErrorStub = sinon.stub(console, "error");
         });
 
-        afterEach(function() {
-            consoleErrorStub.reset();
-        });
-
-        it('writes an error to the console and rejects the promise', function() {
+        it('writes an error to the logs and rejects the promise', function() {
             return resetDeviceObject()
                 .then(function() {
                     assert.fail('Promise should be rejected');
                 }, function() {
-                    assert.calledOnce(consoleErrorStub);
+                    assert.calledOnce(mockLogger.error);
                 });
         });
     });

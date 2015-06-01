@@ -33,15 +33,13 @@ module.exports = {
 
         if (action) {
             getActiveClient()
-                .then(function(client) {
+                .then(function (client) {
                     action(client, request, sender, sendResponse);
-                }, function() {
+                }, function () {
                     throw 'error exectuting action';
                 });
-        } else {
-            if (defaultAction) {
-                defaultAction(request, sender, sendResponse);
-            }
+        } else if (defaultAction) {
+            defaultAction(request, sender, sendResponse);
         }
     }
 

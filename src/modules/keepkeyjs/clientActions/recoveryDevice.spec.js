@@ -17,11 +17,16 @@ describe("client:recoveryDevice", function () {
         initialized: false
     };
 
+    var mockLogger = {
+        error: sinon.stub()
+    };
+
     beforeEach(function () {
         mockFeatureService = proxyquire('./recoveryDevice.js', {
             '../featuresService.js': {
                 getPromise: sinon.stub().returns(Promise.resolve(mockFeatures))
-            }
+            },
+            '../../../logger.js': mockLogger
         });
 
         mockClient = {
@@ -32,6 +37,10 @@ describe("client:recoveryDevice", function () {
         };
 
         recoveryDeviceObject = require('./recoveryDevice.js').bind(mockClient);
+    });
+
+    afterEach(function () {
+        mockLogger.error.reset();
     });
 
     it('returns a promise', function () {
@@ -84,15 +93,8 @@ describe("client:recoveryDevice", function () {
         });
     });
     describe('when the device has been initialized', function () {
-        var consoleErrorStub;
-
         beforeEach(function () {
             mockFeatures.initialized = true;
-            consoleErrorStub = sinon.stub(console, 'error');
-        });
-
-        afterEach(function () {
-            consoleErrorStub.restore();
         });
 
         it('logs an error and rejects the promise', function () {
@@ -101,7 +103,7 @@ describe("client:recoveryDevice", function () {
                     assert.fail('Promise should be rejected');
                 }, function (failure) {
                     assert.isString(failure);
-                    assert.calledOnce(consoleErrorStub);
+                    assert.calledOnce(mockLogger.error);
                 });
         });
     });

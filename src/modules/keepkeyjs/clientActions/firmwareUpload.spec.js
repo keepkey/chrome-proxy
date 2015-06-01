@@ -30,6 +30,12 @@ describe("client:firmwareUpload", function () {
         digest: mockHashHex
     };
 
+    var mockLogger = {
+        debug: sinon.stub(), //function() {console.log(arguments);},
+        info: sinon.stub(), //function() {console.log(arguments);},
+        error: sinon.stub()
+    };
+
     var mocks = {
         '../digest.js': sinon.stub().returns(Promise.resolve(mockHash)),
         '../featuresService.js': {
@@ -40,7 +46,8 @@ describe("client:firmwareUpload", function () {
             return new Promise(function (resolve) {
                 resolve(ByteBuffer.wrap(firmwareFileContents).toArrayBuffer());
             });
-        })
+        }),
+        '../../../logger.js': mockLogger
     };
 
     var readFirmwareFileStub = mocks['./readFirmwareFile.js'];
@@ -55,11 +62,6 @@ describe("client:firmwareUpload", function () {
             writeToDevice: sinon.stub().returns(Promise.resolve({})),
             eventEmitter: {
                 emit: sinon.stub()
-            },
-            logger: {
-                debug: sinon.stub(), //function() {console.log(arguments);},
-                info: sinon.stub(), //function() {console.log(arguments);},
-                error: sinon.stub()
             }
         };
 
@@ -70,6 +72,9 @@ describe("client:firmwareUpload", function () {
         mocks['../featuresService.js'].getPromise.reset();
         mocks['./readFirmwareFile.js'].reset();
         mockClient.protoBuf.FirmwareUpload.reset();
+        mockLogger.debug.reset();
+        mockLogger.info.reset();
+        mockLogger.error.reset();
     });
 
     it('returns a promise', function () {
@@ -84,7 +89,7 @@ describe("client:firmwareUpload", function () {
             }, function (message) {
                 chai.assert.isString(message);
                 chai.assert.equal(message, "Device must be in bootloader mode");
-                sinon.assert.calledOnce(mockClient.logger.error);
+                sinon.assert.calledOnce(mockLogger.error);
                 mockFeatures.bootloader_mode = true;
             });
     });
@@ -106,7 +111,7 @@ describe("client:firmwareUpload", function () {
             }, function (message) {
                 chai.assert.isString(message);
                 chai.assert.ok(message.startsWith("Size of firmware file"));
-                sinon.assert.calledOnce(mockClient.logger.error);
+                sinon.assert.calledOnce(mockLogger.error);
                 mockFirmwareMetadata.size = originalSize;
             });
     });
@@ -120,7 +125,7 @@ describe("client:firmwareUpload", function () {
             }, function (message) {
                 chai.assert.isString(message);
                 chai.assert.ok(message.startsWith('firmware payload digest'));
-                sinon.assert.calledOnce(mockClient.logger.error);
+                sinon.assert.calledOnce(mockLogger.error);
                 mockFirmwareMetadata.trezorDigest = originalValue;
             });
 
@@ -134,7 +139,7 @@ describe("client:firmwareUpload", function () {
             }, function (message) {
                 chai.assert.isString(message);
                 chai.assert.ok(message.startsWith('firmware image digest'));
-                sinon.assert.calledOnce(mockClient.logger.error);
+                sinon.assert.calledOnce(mockLogger.error);
                 mockFirmwareMetadata.digest = originalValue;
             });
 
@@ -149,7 +154,7 @@ describe("client:firmwareUpload", function () {
             }, function (message) {
                 chai.assert.isString(message);
                 chai.assert.ok(message.startsWith('Firmware image is from an unknown manufacturer'));
-                sinon.assert.calledOnce(mockClient.logger.error);
+                sinon.assert.calledOnce(mockLogger.error);
 
                 firmwareFileContents = firmwareFileContents.replace("RONG", "KPKY");
             });
