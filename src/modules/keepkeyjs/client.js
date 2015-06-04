@@ -29,7 +29,7 @@
     var sprintf = require("sprintf-js").sprintf;
     var EventEmitter2 = require('eventemitter2').EventEmitter2;
     var hydrate = require('./hydrate.js');
-    var crypto = window.crypto; //TODO Make this work for node, too
+    var crypto = require('./windowCrypto.js');
     var featuresService = require('./featuresService.js');
 
     var KEEPKEY = 'KEEPKEY';
@@ -40,13 +40,6 @@
 
     module.exports.KEEPKEY = KEEPKEY;
     module.exports.TREZOR = TREZOR;
-
-    function getLocalEntropy() {
-        var randArr = new Uint8Array(32);
-        crypto.getRandomValues(randArr);
-        return ByteBuffer.wrap(randArr);
-    }
-
 
     var clients = {},    // client pool
         clientTypes = {};  // client types used for client creation by type
@@ -95,22 +88,26 @@
         client.firmwareUpload = require('./clientActions/firmwareUpload.js').bind(client);
 
         client.onButtonRequest = function () {
-            client.writeToDevice(new client.protoBuf.ButtonAck());
+            return client.writeToDevice(new client.protoBuf.ButtonAck());
         };
 
         client.onEntropyRequest = function (message) {
-            client.writeToDevice(new client.protoBuf.EntropyAck(getLocalEntropy()));
+            var localEntropy = crypto.getLocalEntropy(32);
+            console.log('isBytBuffer:', localEntropy instanceof ByteBuffer);
+            var entropy = new client.protoBuf.EntropyAck(localEntropy);
+            return client.writeToDevice(entropy);
         };
 
         client.onFeatures = function (message) {
             featuresService.setValue(message);
+            return message;
         };
 
         client.onSuccess = function (message) {
             if (message.message === "Firmware Erased") {
-                client.firmwareUpload();
+                return client.firmwareUpload();
             } else {
-                client.initialize();
+                return client.initialize();
             }
         };
 
@@ -131,7 +128,6 @@
                                 return message;
                             }
                         }
-                    }, function () {
                     });
             }
         }, 1000);
@@ -194,6 +190,10 @@
         return Object.keys(clients).map(function (deviceId) {
             return clients[deviceId];
         });
+    };
+
+    module.exports.setCrypto = function(cryptoOverride) {
+        crypto = cryptoOverride;
     };
 
 })();

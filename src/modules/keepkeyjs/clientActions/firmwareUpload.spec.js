@@ -110,7 +110,7 @@ describe("client:firmwareUpload", function () {
                 chai.assert.fail('should fail when the size specified in the metadata file doesn\'t match the file size');
             }, function (message) {
                 chai.assert.isString(message);
-                chai.assert.ok(message.startsWith("Size of firmware file"));
+                chai.assert.equal(message.indexOf("Size of firmware file"), 0);
                 sinon.assert.calledOnce(mockLogger.error);
                 mockFirmwareMetadata.size = originalSize;
             });
@@ -124,7 +124,7 @@ describe("client:firmwareUpload", function () {
                 chai.assert.fail('should fail when the payload hash is incorrect');
             }, function (message) {
                 chai.assert.isString(message);
-                chai.assert.ok(message.startsWith('firmware payload digest'));
+                chai.assert.equal(message.indexOf('firmware payload digest'), 0);
                 sinon.assert.calledOnce(mockLogger.error);
                 mockFirmwareMetadata.trezorDigest = originalValue;
             });
@@ -138,7 +138,7 @@ describe("client:firmwareUpload", function () {
                 chai.assert.fail('should fail when the payload hash is incorrect');
             }, function (message) {
                 chai.assert.isString(message);
-                chai.assert.ok(message.startsWith('firmware image digest'));
+                chai.assert.equal(message.indexOf('firmware image digest'), 0);
                 sinon.assert.calledOnce(mockLogger.error);
                 mockFirmwareMetadata.digest = originalValue;
             });
@@ -153,7 +153,7 @@ describe("client:firmwareUpload", function () {
                 chai.assert.fail('should fail when the firmware manufacturer tag isn\'t KPKY');
             }, function (message) {
                 chai.assert.isString(message);
-                chai.assert.ok(message.startsWith('Firmware image is from an unknown manufacturer'));
+                chai.assert.equal(message.indexOf('Firmware image is from an unknown manufacturer'), 0);
                 sinon.assert.calledOnce(mockLogger.error);
 
                 firmwareFileContents = firmwareFileContents.replace("RONG", "KPKY");

@@ -20,7 +20,7 @@ describe('transportHidModule', function () {
 
     beforeEach(function() {
         transport = require('./transport.js');
-        transportHid = require('./transport_hid.js');
+        transportHid = require('./transportChromeHid.js');
     });
 
     describe('transportHidModule module', function () {
