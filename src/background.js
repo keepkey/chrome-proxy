@@ -26,11 +26,12 @@
 var EventEmitter2 = require('eventemitter2').EventEmitter2;
 var clientModule = require('./modules/keepkeyjs/client.js');
 var transportModule = require('./modules/keepkeyjs/transport.js');
-var transportHidModule = require('./modules/keepkeyjs/transportChromeHid.js');
+var transportHidModule = require('./modules/keepkeyjs/chrome/chromeTransportHid.js');
 var config = require('../dist/config.json');
 var _ = require('lodash');
 var dispatcher = require('./messageDispatcher');
 var logger = require('./logger.js');
+logger.levels(0, 'info');
 
 var keepKeyWalletId = config.keepkeyWallet.applicationId;
 var clientEE = new EventEmitter2();
@@ -87,7 +88,7 @@ dispatcher.otherwise(function (request, response, sendResponse) {
 
 chrome.runtime.onMessageExternal.addListener(
     function (request, sender, sendResponse) {
-        logger.info('UI --> Proxy: [%s] %j', request.messageType, request);
+        logger.debug('UI --> Proxy: [%s] %j', request.messageType, request);
         if (sender.id === keepKeyWalletId) {
             dispatcher.dispatch(request, sender, sendResponse);
             return true;
@@ -102,7 +103,7 @@ chrome.runtime.onMessageExternal.addListener(
 );
 
 function sendMessageToUI(type, message) {
-    logger.info('proxy --> UI: [%s] %j', type, message);
+    logger.debug('proxy --> UI: [%s] %j', type, message);
     chrome.runtime.sendMessage(
         keepKeyWalletId,
         {
@@ -156,7 +157,7 @@ chrome.hid.onDeviceRemoved.addListener(function (deviceId) {
         }
     );
 
-    logger.info("%s Disconnected: %d", deviceType, deviceId);
+    logger.warn("%s Disconnected: %d", deviceType, deviceId);
 
 
 });

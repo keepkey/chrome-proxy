@@ -37,20 +37,12 @@ describe("client:firmwareUpload", function () {
     };
 
     var mocks = {
-        '../digest.js': sinon.stub().returns(Promise.resolve(mockHash)),
         '../featuresService.js': {
             getPromise: sinon.stub().returns(Promise.resolve(mockFeatures))
         },
         '../../../../tmp/keepkey_main.js': mockFirmwareMetadata,
-        './readFirmwareFile.js': sinon.spy(function() {
-            return new Promise(function (resolve) {
-                resolve(ByteBuffer.wrap(firmwareFileContents).toArrayBuffer());
-            });
-        }),
         '../../../logger.js': mockLogger
     };
-
-    var readFirmwareFileStub = mocks['./readFirmwareFile.js'];
 
     beforeEach(function () {
         proxyquire('./firmwareUpload.js', mocks);
@@ -62,6 +54,14 @@ describe("client:firmwareUpload", function () {
             writeToDevice: sinon.stub().returns(Promise.resolve({})),
             eventEmitter: {
                 emit: sinon.stub()
+            },
+            readFirmwareFile : sinon.spy(function() {
+                return new Promise(function (resolve) {
+                    resolve(ByteBuffer.wrap(firmwareFileContents).toArrayBuffer());
+                });
+            }),
+            crypto: {
+                digest: sinon.stub().returns(Promise.resolve(mockHash))
             }
         };
 
@@ -70,8 +70,8 @@ describe("client:firmwareUpload", function () {
 
     afterEach(function () {
         mocks['../featuresService.js'].getPromise.reset();
-        mocks['./readFirmwareFile.js'].reset();
         mockClient.protoBuf.FirmwareUpload.reset();
+        mockClient.readFirmwareFile.reset();
         mockLogger.debug.reset();
         mockLogger.info.reset();
         mockLogger.error.reset();
@@ -97,8 +97,8 @@ describe("client:firmwareUpload", function () {
     it('gets the firmware filename from the firmware metadata file', function () {
         return firmwareUploadObject()
             .then(function () {
-                sinon.assert.calledOnce(readFirmwareFileStub);
-                sinon.assert.calledWith(readFirmwareFileStub, mockFirmwareMetadata.file);
+                sinon.assert.calledOnce(mockClient.readFirmwareFile);
+                sinon.assert.calledWith(mockClient.readFirmwareFile, mockFirmwareMetadata.file);
             });
     });
 

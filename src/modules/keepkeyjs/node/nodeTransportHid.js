@@ -24,7 +24,7 @@ const SEGMENT_SIZE = 63;
 const REPORT_ID = 63;
 
 var ByteBuffer = require('bytebuffer');
-var transport = require('./transport.js');
+var transport = require('./../transport.js');
 var HID = require('node-hid');
 
 module.exports.onConnect = function (deviceInfo, callback) {
@@ -39,13 +39,16 @@ module.exports.onConnect = function (deviceInfo, callback) {
     that._write = function (message) {
         // break frame into segments
         for (var i = 0, max = message.limit; i < max; i += SEGMENT_SIZE) {
-            var segment = ByteBuffer.concat([
-                ByteBuffer.wrap([REPORT_ID]),
-                message.slice(i, Math.min(i + SEGMENT_SIZE, message.limit))
-            ]);
-            hidDevice.write(segment.toBuffer());
-        }
+            var payloadFragment = message.slice(i, Math.min(i + SEGMENT_SIZE, message.limit));
+            var paddingSize = SEGMENT_SIZE - (payloadFragment.limit - payloadFragment.offset);
 
+            var frame = ByteBuffer.concat([
+                ByteBuffer.wrap([REPORT_ID]),
+                payloadFragment,
+                ByteBuffer.wrap(new Array(paddingSize + 1).join('\0'))
+            ]);
+            hidDevice.write(frame.toBuffer());
+        }
         return Promise.resolve();
     };
 

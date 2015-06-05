@@ -4,30 +4,30 @@ var program = require('commander');
 var clientModule = require('./modules/keepkeyjs/client.js');
 var _ = require('lodash');
 var transport = require('./modules/keepkeyjs/transport.js');
-var transportHid = require('./modules/keepkeyjs/transportNodeHid.js');
+var transportHid = require('./modules/keepkeyjs/node/nodeTransportHid.js');
 var featuresService = require('./modules/keepkeyjs/featuresService.js');
-var crypto = require('./modules/keepkeyjs/nodeCrypto.js');
 var readline = require('readline');
+var logger = require('./logger.js');
 
 const DEVICES = {
     KEEPKEY: {vendorId: 11044, productId: 1},
     TREZOR: {vendorId: 21324, productId: 1}
 };
 
-clientModule.setCrypto(crypto);
-
 var client;
 
-transportHid.onConnect(DEVICES.KEEPKEY,
-    function createClientForDevice(deviceTransport) {
-        client = clientModule.factory(deviceTransport);
+function initializeClient() {
+    transportHid.onConnect(DEVICES.KEEPKEY,
+        function createClientForDevice(deviceTransport) {
+            client = clientModule.factory(deviceTransport);
 
-        console.log("connected to:", {
-            deviceType: client.getDeviceType(),
-            deviceId: deviceTransport.getDeviceId()
-        });
-    }
-);
+            client.readFirmwareFile = require('./modules/keepkeyjs/node/nodeReadFirmwareFile.js');
+            client.crypto = require('./modules/keepkeyjs/node/nodeCrypto.js');
+
+            console.log("connected to:", client.getDeviceType());
+        }
+    );
+}
 
 function waitForMessage(targetMessageType, filter) {
     return function () {
@@ -62,15 +62,19 @@ function waitForUserInput(prompt, errorMessage, action) {
 }
 
 program
-    .version(package.version);
+    .version(package.version)
+    .option('-v, --verbose', 'Increase verbosity', function verbosity(v, total) {
+        return total - 10;
+    }, 40);
 
 program
     .command('wipe')
     .alias('w')
     .description('Delete keys and configurations')
-    .action(function () {
-        featuresService.getPromise()
-            .then(client.wipeDevice)
+    .action(function (options) {
+        initializeClient();
+        logger.levels(0, program.verbose);
+        return client.wipeDevice()
             .then(waitForMessage("Success", {message: "Device wiped"}))
             .then(process.exit)
             .catch(function (failure) {
@@ -90,6 +94,8 @@ program
     .option('-P, --no-pin-protection', 'turn off PIN protection for your device (not recommended)')
     .option('-lang, --language <language>', 'set the language displayed on your device, values: english, default: english')
     .action(function (label, options) {
+        initializeClient();
+        logger.levels(0, program.verbose);
         var params = {
             display_random: options.displayRandom || false,
             strength: options.strength || 128,
@@ -100,15 +106,12 @@ program
         };
 
         function waitForPin(prompt) {
-            return waitForUserInput(prompt + ": ", "PIN too short, try again.", function(line) {
+            return waitForUserInput(prompt + ": ", "PIN too short, try again.", function (line) {
                 return client.pinMatrixAck({pin: line});
             });
         }
 
-        featuresService.getPromise()
-            .then(function () {
-                client.resetDevice(params);
-            })
+        return client.resetDevice(params)
             .then(waitForMessage("PinMatrixRequest", {type: 'PinMatrixRequestType_NewFirst'}))
             .then(waitForPin("Enter your PIN"))
             .then(waitForMessage("PinMatrixRequest", {type: 'PinMatrixRequestType_NewSecond'}))
@@ -121,7 +124,31 @@ program
             });
     });
 
+program
+    .command('update')
+    .alias('u')
+    .description('Update firmware')
+    .option('-f, --firmware-file', 'the firmware file to be uploaded (defaults to bin/keepkey_main.bin)')
+    .action(function (options) {
+        initializeClient();
+        logger.levels(0, program.verbose);
+        var params = {
+            firmwareFile: options.firmwareFile || 'bin/keepkey_main.bin'
+        };
+
+        return client.firmwareUpdate(params)
+            .then(waitForMessage("Success", {message: "Upload complete"}))
+            .then(process.exit)
+            .catch(function (failure) {
+                console.error(failure);
+                process.exit();
+            });
+    });
+
 
 program.parse(process.argv);
 
-
+if (!process.argv.slice(2).length) {
+    program.outputHelp();
+    process.exit();
+}

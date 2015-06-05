@@ -8,9 +8,9 @@ FormattedConsoleLog.prototype.write = function (rec) {
         rec.msg);
 };
 module.exports = bunyan.createLogger({
-    name: 'play',
+    name: 'console',
     streams: [{
-        level: 'debug',
+        level: 'warn',
         stream: new FormattedConsoleLog(),
         type: 'raw'
     }]

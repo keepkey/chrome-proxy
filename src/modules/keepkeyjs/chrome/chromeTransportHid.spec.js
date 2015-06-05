@@ -19,8 +19,8 @@ describe('transportHidModule', function () {
     };
 
     beforeEach(function() {
-        transport = require('./transport.js');
-        transportHid = require('./transportChromeHid.js');
+        transport = require('./../transport.js');
+        transportHid = require('./chromeTransportHid.js');
     });
 
     describe('transportHidModule module', function () {
