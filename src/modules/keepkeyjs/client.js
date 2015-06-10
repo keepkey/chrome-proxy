@@ -29,7 +29,6 @@ var featuresService = require('./featuresService.js');
 var KEEPKEY = 'KEEPKEY';
 var TREZOR = 'TREZOR';
 var DEVICES = require('./transport.js').DEVICES;
-var PRIME_DERIVATION_FLAG = 0x80000000;
 var logger = require('../../logger.js');
 
 module.exports.KEEPKEY = KEEPKEY;
@@ -40,18 +39,6 @@ var clients = {},    // client pool
 
 clientTypes[KEEPKEY] = require('./keepkey/client.js');
 clientTypes[TREZOR] = require('./trezor/client.js');
-
-function convertPrime(n) {
-    var i = 0, max = n.length;
-
-    for (; i < max; i += 1) {
-        if (n[i] < 0) {
-            n[i] = uint32.or(Math.abs(n[i]), PRIME_DERIVATION_FLAG);
-        }
-    }
-
-    return n;
-}
 
 function clientMaker(transport, protoBuf) {
 
@@ -82,6 +69,8 @@ function clientMaker(transport, protoBuf) {
     client.characterAck = require('./clientActions/characterAck.js').bind(client);
     client.firmwareUpdate = require('./clientActions/firmwareErase.js').bind(client);
     client.firmwareUpload = require('./clientActions/firmwareUpload.js').bind(client);
+    client.getAddress = require('./clientActions/getAddress.js').bind(client);
+    client.endSession = require('./clientActions/endSession.js').bind(client);
 
     client.onButtonRequest = function () {
         return client.writeToDevice(new client.protoBuf.ButtonAck());
