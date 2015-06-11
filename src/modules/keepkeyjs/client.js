@@ -60,7 +60,7 @@ function clientMaker(transport, protoBuf) {
     client.initialize = function () {
         return client.writeToDevice(new client.protoBuf.Initialize());
     };
-
+    client.cancel = require('./clientActions/cancel.js').bind(client);
     client.wipeDevice = require('./clientActions/wipeDevice.js').bind(client);
     client.resetDevice = require('./clientActions/resetDevice.js').bind(client);
     client.recoveryDevice = require('./clientActions/recoveryDevice.js').bind(client);
