@@ -2,7 +2,6 @@
 
 var program = require('commander');
 var lib = require('./lib.js');
-var logger = require('./../logger.js');
 
 program
     .option('-r, --display-random', 'display the entropy value')
@@ -10,10 +9,10 @@ program
     .option('-pass, --passphrase-protection', 'protect your private key with a passphrase (not recommended)')
     .option('-P, --no-pin-protection', 'turn off PIN protection for your device (not recommended)')
     .option('-lang, --language <language>', 'set the language displayed on your device, values: english, default: english')
+    .option('-v, --verbose', 'Increase verbosity', lib.bumpVerbosity, 40)
     .parse(process.argv);
 
 lib.initializeClient();
-logger.levels(0, program.verbose);
 var params = {
     display_random: program.displayRandom || false,
     strength: parseInt(program.strength) || 128,

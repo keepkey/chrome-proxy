@@ -2,15 +2,13 @@
 
 var program = require('commander');
 var lib = require('./lib.js');
-var logger = require('./../logger.js');
 
 program
+    .option('-v, --verbose', 'Increase verbosity', lib.bumpVerbosity, 40)
     .parse(process.argv);
 
 lib.initializeClient();
 var client = lib.getClient();
-
-logger.levels(0, program.verbose);
 
 return lib.getClient().wipeDevice()
     .then(lib.waitForMessage("Success", {message: "Device wiped"}))

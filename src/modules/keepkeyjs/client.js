@@ -41,6 +41,7 @@ clientTypes[KEEPKEY] = require('./keepkey/client.js');
 clientTypes[TREZOR] = require('./trezor/client.js');
 
 function clientMaker(transport, protoBuf) {
+    logger.debug('Initializing client');
 
     var client = {};
     var deviceInUse = false;

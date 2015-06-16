@@ -2,6 +2,7 @@ var _ = require('lodash');
 var readline = require('readline');
 var transportHid = require('./../modules/keepkeyjs/node/nodeTransportHid.js');
 var clientModule = require('./../modules/keepkeyjs/client.js');
+var logger = require('./../logger.js');
 const DEVICES = {
     KEEPKEY: {vendorId: 11044, productId: 1},
     TREZOR: {vendorId: 21324, productId: 1}
@@ -63,6 +64,12 @@ module.exports = {
         return module.exports.waitForUserInput(prompt + ": ", "PIN too short, try again.", function (line) {
             return client.pinMatrixAck({pin: line});
         });
+    },
+    bumpVerbosity: function verbosity(v, total) {
+        var newVerbosityLevel = total - 10;
+
+        logger.levels(0, newVerbosityLevel);
+        return newVerbosityLevel;
     }
 
 };

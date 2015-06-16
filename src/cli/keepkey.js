@@ -4,10 +4,6 @@ var program = require('commander');
 
 program
     .version(package.version)
-    .option('-v, --verbose', 'Increase verbosity', function verbosity(v, total) {
-        // TODO Verbosity isn't working.
-        return total - 10;
-    }, 40)
     .command('wipe', 'Delete keys and configurations')
     .command('setup <label>', 'Initialize your device')
     .command('update', 'Update firmware')

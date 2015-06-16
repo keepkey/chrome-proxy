@@ -26,6 +26,7 @@ const REPORT_ID = 63;
 var ByteBuffer = require('bytebuffer');
 var transport = require('./../transport.js');
 var HID = require('node-hid');
+var logger = require('./../../../logger.js');
 
 module.exports.onConnect = function (deviceInfo, callback) {
     var hidDevice = new HID.HID(deviceInfo.vendorId, deviceInfo.productId);
@@ -52,6 +53,38 @@ module.exports.onConnect = function (deviceInfo, callback) {
         return Promise.resolve();
     };
 
+    const PAYLOAD_START = transport.MSG_HEADER_START.length + transport.MSG_HEADER_LENGTH + 1;
+
+    function getMessageFragment(receivedMessage) {
+        return new Promise(function (resolve) {
+            hidDevice.read(function processNextFragment(error, data) {
+                logger.debug('>>> got data from HID:', ByteBuffer.wrap(data).toHex());
+                var bbData = ByteBuffer.wrap(data);
+                receivedMessage.bufferBB.append(
+                    bbData.slice(1, Math.min(bbData.limit, receivedMessage.bufferBB.limit - receivedMessage.bufferBB.offset))
+                );
+                resolve(receivedMessage);
+            });
+        });
+    }
+
+    function ReceivedMessage(bbData) {
+        this.header = transport.parseMsgHeader(ByteBuffer.wrap(bbData));
+        this.bufferBB = new ByteBuffer(this.header.msgLength)
+            .append(bbData.slice(PAYLOAD_START));
+        this.bytesRemaining = this.bufferBB.limit - this.bufferBB.offset;
+    }
+
+    function getRemainingFragments(receivedMessage) {
+        var remainingFragments = Math.ceil(receivedMessage.bytesRemaining / SEGMENT_SIZE);
+
+        var fragmentChain = Promise.resolve(receivedMessage);
+        for (var i = 0; i < remainingFragments; i++) {
+            fragmentChain = fragmentChain.then(getMessageFragment);
+        }
+        return fragmentChain;
+    }
+
     that._read = function () {
         if (that.readInProgess) {
             return Promise.reject('read is not re-entrant');
@@ -59,7 +92,7 @@ module.exports.onConnect = function (deviceInfo, callback) {
         that.readInProgess = true;
         return new Promise(function (resolve, reject) {
             hidDevice.read(function (error, data) {
-                const PAYLOAD_START = transport.MSG_HEADER_START.length + transport.MSG_HEADER_LENGTH + 1;
+                logger.debug('got data from HID:', ByteBuffer.wrap(data).toHex());
 
                 if (error) {
                     that.readInProgess = false;
@@ -80,42 +113,22 @@ module.exports.onConnect = function (deviceInfo, callback) {
                     reject('Message not received');
                 }, 1000);
 
-                var bbData = ByteBuffer.wrap(data).slice(1);
+                var receivedMessage = new ReceivedMessage(ByteBuffer.wrap(data).slice(1), PAYLOAD_START);
 
-                var receivedMessage = {};
-                receivedMessage.header = transport.parseMsgHeader(ByteBuffer.wrap(bbData));
-                receivedMessage.bufferBB = new ByteBuffer(receivedMessage.header.msgLength);
-
-                receivedMessage.bufferBB.append(bbData.slice(PAYLOAD_START));
-
-                var bytesRemaining = receivedMessage.bufferBB.limit - receivedMessage.bufferBB.offset;
-
-                if (bytesRemaining > 0) {
-                    var remainingFragments = Math.ceil(bytesRemaining / SEGMENT_SIZE);
-                    var processNextFragment = function processNextFragment(error, data) {
-                        var bbData = ByteBuffer.wrap(data);
-                        receivedMessage.bufferBB.append(
-                            bbData.slice(1, Math.min(bbData.limit, receivedMessage.bufferBB.limit - receivedMessage.bufferBB.offset))
-                        );
-                        if (receivedMessage.bufferBB.offset >= (receivedMessage.bufferBB.limit - 1)) {
+                if (receivedMessage.bytesRemaining > 0) {
+                    getRemainingFragments(receivedMessage)
+                        .then(function (receivedMessage) {
                             clearTimeout(timeout);
                             receivedMessage.bufferBB.reset();
                             that.readInProgess = false;
                             resolve(receivedMessage);
-                        }
-                    };
-
-                    for (var i = 0; i < remainingFragments; i++) {
-                        hidDevice.read(processNextFragment);
-                    }
+                        });
                 } else {
                     clearTimeout(timeout);
                     receivedMessage.bufferBB.reset();
                     that.readInProgess = false;
                     resolve(receivedMessage);
                 }
-
-
             });
         });
     };

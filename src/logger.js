@@ -7,12 +7,17 @@ FormattedConsoleLog.prototype.write = function (rec) {
         bunyan.nameFromLevel[rec.level],
         rec.msg);
 };
-module.exports = bunyan.createLogger({
+
+var stream = new FormattedConsoleLog();
+
+var logger = bunyan.createLogger({
     name: 'console',
     streams: [{
         level: 'warn',
-        stream: new FormattedConsoleLog(),
+        stream: stream,
         type: 'raw'
     }]
 });
+
+module.exports = logger;
 
