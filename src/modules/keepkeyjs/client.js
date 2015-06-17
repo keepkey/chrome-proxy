@@ -71,6 +71,7 @@ function clientMaker(transport, protoBuf) {
     client.firmwareUpdate = require('./clientActions/firmwareErase.js').bind(client);
     client.firmwareUpload = require('./clientActions/firmwareUpload.js').bind(client);
     client.getAddress = require('./clientActions/getAddress.js').bind(client);
+    client.getPublicKey = require('./clientActions/getPublicKey.js').bind(client);
     client.endSession = require('./clientActions/endSession.js').bind(client);
 
     client.onButtonRequest = function () {
@@ -89,7 +90,7 @@ function clientMaker(transport, protoBuf) {
     };
 
     client.onSuccess = function (message) {
-        if (message.message === "Firmware Erased") {
+        if (message.message.toLowerCase() === "firmware erased") {
             return client.firmwareUpload();
         } else {
             return client.initialize();
@@ -103,7 +104,7 @@ function clientMaker(transport, protoBuf) {
             transport.read()
                 .then(function dispatchIncomingMessage(message) {
                     deviceInUse = false;
-                    logger.debug('device --> proxy: [%s] %j', message.$type.name, message);
+                    logger.info('device --> proxy: [%s] %j', message.$type.name, message);
                     if (message) {
 
                         client.eventEmitter.emit('DeviceMessage', message.$type.name, hydrate(message));

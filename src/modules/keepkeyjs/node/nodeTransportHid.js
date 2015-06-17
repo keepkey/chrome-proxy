@@ -61,7 +61,7 @@ module.exports.onConnect = function (deviceInfo, callback) {
                 logger.debug('>>> got data from HID:', ByteBuffer.wrap(data).toHex());
                 var bbData = ByteBuffer.wrap(data);
                 receivedMessage.bufferBB.append(
-                    bbData.slice(1, Math.min(bbData.limit, receivedMessage.bufferBB.limit - receivedMessage.bufferBB.offset))
+                    bbData.slice(1, Math.min(bbData.limit, receivedMessage.bufferBB.limit - receivedMessage.bufferBB.offset + 1))
                 );
                 resolve(receivedMessage);
             });

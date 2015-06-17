@@ -1,8 +1,13 @@
 var _ = require('lodash');
+var ByteBuffer = require('bytebuffer');
 
 module.exports = function(pbMessage) {
     var objReflection = pbMessage.$type;
-    var newMessage = _.cloneDeep(pbMessage);
+    var newMessage = _.cloneDeep(pbMessage, function(value, key) {
+        if (ByteBuffer.isByteBuffer(value)) {
+            return value;
+        }
+    });
 
     var enumFields = _.filter(objReflection._fields, function(it) {
         return it.resolvedType && it.resolvedType.className === "Enum";
