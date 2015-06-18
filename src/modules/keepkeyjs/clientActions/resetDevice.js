@@ -28,7 +28,7 @@ module.exports = function resetDevice(args) {
 
                 return client.writeToDevice(message);
             } else {
-                return Promise.reject('Expected device to be unitialized. Run WipeDevice and try again.');
+                return Promise.reject('Expected device to be uninitialized. Run WipeDevice and try again.');
             }
 
         })

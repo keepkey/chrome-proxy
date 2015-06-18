@@ -24,6 +24,7 @@ var SEGMENT_SIZE = 63,
 
 var ByteBuffer = require('bytebuffer');
 var transport = require('./../transport.js');
+var logger = require('../../../logger.js');
 
 module.exports.onConnect = function (hidDevice, callback) {
 
@@ -58,7 +59,7 @@ module.exports.onConnect = function (hidDevice, callback) {
                     }
                 );
             } catch (error) {
-                console.error('Error sending to HID:', error);
+                logger.error('Error sending to HID:', error);
                 reject(error);
             }
         });
@@ -81,7 +82,7 @@ module.exports.onConnect = function (hidDevice, callback) {
 
                     resolve(rxMsg);
                 } else {
-                    console.error('Error: Received unknown report ID from HID:', reportId);
+                    logger.error('Received unknown report ID from HID:', reportId);
                     reject({
                         name: 'Error',
                         message: 'Unexpected report ID.'
@@ -103,13 +104,10 @@ module.exports.onConnect = function (hidDevice, callback) {
             txSegmentAB = txMsgBB.toArrayBuffer().slice(i, i + SEGMENT_SIZE);
             txSegmentBB = ByteBuffer.concat([txSegmentAB, ByteBuffer.wrap(new Array(SEGMENT_SIZE - txSegmentAB.byteLength + 1).join('\0'))]);
 
-            // Add an operation to the end of the chain
-            writePromise = writePromise
+            writePromise
                 .then(writeToHid.bind(this, txSegmentBB));
 
         }
-
-        // return the last promise on the chain
         return writePromise;
     };
 

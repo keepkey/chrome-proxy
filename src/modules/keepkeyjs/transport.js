@@ -101,6 +101,7 @@ module.exports.create = (function () {
             return {};
         };
 
+        transport.pendingWriteQueue = Promise.resolve();
         transport.write = function (txProtoMsg) {
             var msgAB = txProtoMsg.encodeAB(),
                 msgBB = ByteBuffer.concat([
@@ -109,7 +110,12 @@ module.exports.create = (function () {
                         msgAB]                                                                                        // message
                 );
 
-            return transport._write(msgBB);
+            logger.debug('adding message to the queue');
+            return transport.pendingWriteQueue
+                .then(function() {
+                    logger.debug('sending message');
+                    return transport._write(msgBB);
+                });
         };
 
         transport.read = function () {

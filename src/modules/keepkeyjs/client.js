@@ -20,7 +20,6 @@
  * END KEEPKEY LICENSE
  */
 var ByteBuffer = require('bytebuffer');
-var uint32 = require('uint32');
 var EventEmitter2 = require('eventemitter2').EventEmitter2;
 var hydrate = require('./hydrate.js');
 var featuresService = require('./featuresService.js');
