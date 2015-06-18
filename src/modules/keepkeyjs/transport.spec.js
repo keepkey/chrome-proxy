@@ -16,11 +16,7 @@ describe('transport', function() {
         describe('.create', function () {
             it('should return an object with 9 commands', function () {
                 assert('object' === typeof(this.createdTransport));
-                assert(9 === Object.keys(this.createdTransport).length);
-                // assert.deepEqual(
-                // ['_read', '_write', 'buildMessageMap', 'getDeviceId', 'getDeviceInfo', 'getMsgType', 'getMsgClass',
-                // 'read', 'startSession', 'stopSession', 'write'],
-                // Object.keys(this.createdTransport).sort());
+                assert.equal(10, Object.keys(this.createdTransport).length);
             });
         });
 

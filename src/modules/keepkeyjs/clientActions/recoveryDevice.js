@@ -9,7 +9,7 @@ var defaultOptions = {
     language: null,
     label: null,
     word_count: 12,
-    enforce_wordlist: false,
+    enforce_wordlist: true,
     use_character_cipher: true
 };
 
@@ -17,6 +17,10 @@ module.exports = function recoveryDevice(args) {
     client = this;
 
     var options = _.extend({}, defaultOptions, args);
+
+    if (options.use_character_cipher) {
+        options.word_count = 0;
+    }
 
     return featuresService.getPromise()
         .then(function (features) {

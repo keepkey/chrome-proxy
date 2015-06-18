@@ -57,7 +57,7 @@ describe("client:recoveryDevice", function () {
                 .then(function () {
                     assert.calledOnce(mockClient.protoBuf.RecoveryDevice);
                     assert.calledWith(mockClient.protoBuf.RecoveryDevice,
-                        12, false, true, null, null, false, true);
+                        0, false, true, null, null, true, true);
                 });
 
         });

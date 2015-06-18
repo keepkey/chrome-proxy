@@ -63,8 +63,8 @@ dispatcher.when('Cancel', function (client) {
     return client.cancel();
 });
 
-dispatcher.when('RecoveryDevice', function (client) {
-    return client.recoveryDevice();
+dispatcher.when('RecoveryDevice', function (client, request) {
+    return client.recoveryDevice(request);
 });
 
 dispatcher.when('WordAck', function (client, request) {

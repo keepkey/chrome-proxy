@@ -48,7 +48,7 @@ function clientMaker(transport, protoBuf) {
     client.eventEmitter = new EventEmitter2();
     client.addListener = client.eventEmitter.addListener.bind(client.eventEmitter);
     client.writeToDevice = function (message) {
-        logger.debug('proxy --> device: [%s] %j', message.$type.name, message);
+        logger.info('proxy --> device: [%s] %j', message.$type.name, message);
         return transport.write.apply(transport, arguments);
     };
 
