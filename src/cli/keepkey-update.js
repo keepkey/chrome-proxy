@@ -8,20 +8,19 @@ program
     .option('-v, --verbose', 'Increase verbosity', lib.bumpVerbosity, 40)
     .parse(process.argv);
 
-lib.initializeClient();
-var client = lib.getClient();
-
 var params = {
     firmwareFile: program.firmwareFile || '../../bin/keepkey_main.bin' //TODO Specifying the file name should work correctly.
 };
 
-lib.getClient().firmwareUpdate(params)
-    .then(lib.waitForMessage("Success", {message: "Upload complete"}))
-    .then(client.endSession)
-    .then(process.exit)
-    .catch(function (failure) {
-        console.error(failure);
-        process.exit();
+lib.initializeClient()
+    .then(function (client) {
+        client.firmwareUpdate(params)
+            .then(lib.waitForMessage("Success", {message: "Upload complete"}))
+            .then(process.exit)
+            .catch(function (failure) {
+                console.error(failure);
+                process.exit();
+            });
     });
 
 

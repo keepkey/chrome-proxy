@@ -45,6 +45,45 @@ describe("client:getPublicKey", function () {
             });
 
     });
+    it('accepts node identifiers in a string', function () {
+        var testArguments = {
+            addressN: "314159/0/2"
+        };
+        return getPublicKeyObject(testArguments)
+            .then(function () {
+                assert.calledOnce(mockClient.protoBuf.GetPublicKey);
+                assert.calledWith(mockClient.protoBuf.GetPublicKey,
+                    [314159, 0, 2]
+                );
+            });
+
+    });
+    it('accepts node identifiers in a string with the "M" prefix', function () {
+        var testArguments = {
+            addressN: "m/314159/0/2"
+        };
+        return getPublicKeyObject(testArguments)
+            .then(function () {
+                assert.calledOnce(mockClient.protoBuf.GetPublicKey);
+                assert.calledWith(mockClient.protoBuf.GetPublicKey,
+                    [314159, 0, 2]
+                );
+            });
+
+    });
+    it('hardens nodes tagged with \' in a string', function () {
+        var testArguments = {
+            addressN: "44'/0'/2'"
+        };
+        return getPublicKeyObject(testArguments)
+            .then(function () {
+                assert.calledOnce(mockClient.protoBuf.GetPublicKey);
+                assert.calledWith(mockClient.protoBuf.GetPublicKey,
+                    [0x8000002C, 0x80000000, 0x80000002]
+                );
+            });
+
+    });
     it('passes arguments to the GetPublicKey protobuf message factory', function () {
         var testArguments = {
             addressN: [314159]

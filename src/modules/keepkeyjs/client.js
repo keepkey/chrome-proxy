@@ -23,7 +23,8 @@ var ByteBuffer = require('bytebuffer');
 var EventEmitter2 = require('eventemitter2').EventEmitter2;
 var hydrate = require('./hydrate.js');
 var featuresService = require('./featuresService.js');
-
+var walletNodeService = require('./walletNodeService.js');
+var _ = require('lodash');
 
 var KEEPKEY = 'KEEPKEY';
 var TREZOR = 'TREZOR';
@@ -95,6 +96,8 @@ function clientMaker(transport, protoBuf) {
             return client.initialize();
         }
     };
+
+    client.onPublicKey = walletNodeService.registerPublicKey;
 
     // Poll for incoming messages
     client.devicePollingInterval = setInterval(function () {

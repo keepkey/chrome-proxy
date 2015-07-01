@@ -30,6 +30,8 @@ var transportHidModule = require('./modules/keepkeyjs/chrome/chromeTransportHid.
 var config = require('../dist/config.json');
 var _ = require('lodash');
 var dispatcher = require('./messageDispatcher');
+var walletNodeService = require('./modules/keepkeyjs/walletNodeService.js');
+
 var logger = require('./logger.js');
 logger.levels(0, 'info');
 
@@ -79,6 +81,18 @@ dispatcher.when('FirmwareUpdate', function (client, request) {
     return client.firmwareUpdate(request);
 });
 
+dispatcher.when('GetAddress', function (client, request) {
+    return client.getAddress(request);
+});
+
+dispatcher.when('GetPublicKey', function (client, request) {
+    return client.getPublicKey(request);
+});
+
+dispatcher.when('GetWalletNodes', function(client, request) {
+    sendMessageToUI('WalletNodes', walletNodeService.nodes);
+});
+
 dispatcher.otherwise(function (request, response, sendResponse) {
     sendResponse({
         messageType: "Error",
@@ -112,6 +126,10 @@ function sendMessageToUI(type, message) {
         }
     );
 }
+
+walletNodeService.addListener('changed', function (nodes, oldNodes) {
+    sendMessageToUI('walletNodes', nodes);
+});
 
 module.exports = {
     sendMessageToUI: sendMessageToUI

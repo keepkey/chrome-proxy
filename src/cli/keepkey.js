@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 var package = require('../../package.json');
 var program = require('commander');
+var lib = require('./lib.js');
 
 program
     .version(package.version)

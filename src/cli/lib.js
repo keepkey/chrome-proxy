@@ -9,23 +9,37 @@ const DEVICES = {
 };
 
 var client;
+var clientPromise;
 
-module.exports = {
-    getClient: function () {
-        return client;
+var lib = {
+    initializeClient: function initializeClient() {
+        clientPromise = new Promise(function(resolve, reject) {
+            transportHid.onConnect(DEVICES.KEEPKEY,
+                function createClientForDevice(deviceTransport) {
+                    client = clientModule.factory(deviceTransport);
+
+                    client.readFirmwareFile = require('./../modules/keepkeyjs/node/nodeReadFirmwareFile.js');
+                    client.crypto = require('./../modules/keepkeyjs/node/nodeCrypto.js');
+
+                    console.log("connected to:", client.getDeviceType());
+
+                    resolve(client);
+                }
+            );
+        });
+        return clientPromise
+            .then(function(client) {
+                lib.waitForMessage('Failure')()
+                    .then(function(message) {
+                        console.log('FAILURE! %s',message.message);
+                        process.exit();
+                    });
+                return client;
+            });
     },
 
-    initializeClient: function initializeClient() {
-        transportHid.onConnect(DEVICES.KEEPKEY,
-            function createClientForDevice(deviceTransport) {
-                client = clientModule.factory(deviceTransport);
-
-                client.readFirmwareFile = require('./../modules/keepkeyjs/node/nodeReadFirmwareFile.js');
-                client.crypto = require('./../modules/keepkeyjs/node/nodeCrypto.js');
-
-                console.log("connected to:", client.getDeviceType());
-            }
-        );
+    getClientPromise: function getClientPromise() {
+        return clientPromise;
     },
 
     waitForMessage: function waitForMessage(targetMessageType, filter) {
@@ -71,5 +85,6 @@ module.exports = {
         logger.levels(0, newVerbosityLevel);
         return newVerbosityLevel;
     }
-
 };
+
+module.exports = lib;

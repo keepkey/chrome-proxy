@@ -21,6 +21,29 @@ function convertPrime(n) {
     return n;
 }
 
+function readNodePath(addressN) {
+    if (typeof addressN === "string") {
+        addressN = addressN.toUpperCase().split('/');
+
+        if (addressN[0] === 'M') {
+            addressN = addressN.slice(1);
+        }
+        addressN = _.transform(addressN, function (result, it) {
+            if (it.substring(it.length - 1) === "'") {
+                it = '-' + it.substring(0, it.length - 1);
+            }
+
+            if (it === '-0') {
+                result.push(PRIME_DERIVATION_FLAG);
+            } else {
+                result.push(parseInt(it, 10));
+            }
+        }, []);
+    }
+    return convertPrime(addressN);
+}
+
+
 module.exports = function getPublicKey(args) {
     client = this;
 
@@ -28,7 +51,9 @@ module.exports = function getPublicKey(args) {
 
     return featuresService.getPromise()
         .then(function (features) {
-            options.addressN = convertPrime(options.addressN, 10);
+            options.addressN = readNodePath(options.addressN);
+
+            console.log('Normalized node path:', options.addressN);
 
             var message = new client.protoBuf.GetPublicKey(
                 options.addressN

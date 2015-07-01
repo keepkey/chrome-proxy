@@ -16,8 +16,6 @@ program
 
 var addressN = program.args;
 
-lib.initializeClient();
-
 if (addressN.length === 1) {
     addressN = addressN[0].split('/');
 }
@@ -45,7 +43,10 @@ var options = {
     multisig: program.multisig || false
 };
 
-lib.getClient().getAddress(options)
+lib.initializeClient()
+    .then(function(client) {
+        client.getAddress(options);
+    })
     .then(function() {
         var pinEntryPromise = lib.waitForMessage("PinMatrixRequest", {type: 'PinMatrixRequestType_Current'})()
             .then(lib.waitForPin('Enter your PIN'))
@@ -66,7 +67,10 @@ lib.getClient().getAddress(options)
         if (program.rememberPin) {
             return;
         } else {
-            return lib.getClient().endSession();
+            return lib.getClientPromise()
+                .then(function(client) {
+                    client.endSession();
+                });
         }
     })
     .then(process.exit)

@@ -12,7 +12,6 @@ program
     .option('-v, --verbose', 'Increase verbosity', lib.bumpVerbosity, 40)
     .parse(process.argv);
 
-lib.initializeClient();
 var params = {
     display_random: program.displayRandom || false,
     strength: parseInt(program.strength) || 128,
@@ -22,15 +21,18 @@ var params = {
     label: program.args[0]
 };
 
-lib.getClient().resetDevice(params)
-    .then(lib.waitForMessage("PinMatrixRequest", {type: 'PinMatrixRequestType_NewFirst'}))
-    .then(lib.waitForPin("Enter your PIN"))
-    .then(lib.waitForMessage("PinMatrixRequest", {type: 'PinMatrixRequestType_NewSecond'}))
-    .then(lib.waitForPin("Re-enter your PIN"))
-    .then(lib.waitForMessage("Success", {message: "Device reset"}))
-    .then(process.exit)
-    .catch(function (failure) {
-        console.error(failure);
-        process.exit();
+lib.initializeClient()
+    .then(function (client) {
+        client.resetDevice(params)
+            .then(lib.waitForMessage("PinMatrixRequest", {type: 'PinMatrixRequestType_NewFirst'}))
+            .then(lib.waitForPin("Enter your PIN"))
+            .then(lib.waitForMessage("PinMatrixRequest", {type: 'PinMatrixRequestType_NewSecond'}))
+            .then(lib.waitForPin("Re-enter your PIN"))
+            .then(lib.waitForMessage("Success", {message: "Device reset"}))
+            .then(process.exit)
+            .catch(function (failure) {
+                console.error(failure);
+                process.exit();
+            });
     });
 
