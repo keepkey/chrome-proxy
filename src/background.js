@@ -31,6 +31,7 @@ var config = require('../dist/config.json');
 var _ = require('lodash');
 var dispatcher = require('./messageDispatcher');
 var walletNodeService = require('./modules/keepkeyjs/walletNodeService.js');
+var transactionService = require('./modules/keepkeyjs/transactionService.js');
 
 var logger = require('./logger.js');
 logger.levels(0, 'info');
@@ -93,6 +94,10 @@ dispatcher.when('GetWalletNodes', function(client, request) {
     sendMessageToUI('WalletNodes', walletNodeService.nodes);
 });
 
+dispatcher.when('GetTransactions', function(client, request) {
+    sendMessageToUI('Transactions', transactionService.transactions);
+});
+
 dispatcher.otherwise(function (request, response, sendResponse) {
     sendResponse({
         messageType: "Error",
@@ -128,7 +133,11 @@ function sendMessageToUI(type, message) {
 }
 
 walletNodeService.addListener('changed', function (nodes, oldNodes) {
-    sendMessageToUI('walletNodes', nodes);
+    sendMessageToUI('WalletNodes', nodes);
+});
+
+transactionService.addListener('changed', function (nodes, oldNodes) {
+    sendMessageToUI('Transactions', nodes);
 });
 
 module.exports = {
