@@ -17,24 +17,11 @@ program
 var addressN = program.args;
 
 if (addressN.length === 1) {
-    addressN = addressN[0].split('/');
+    addressN = addressN[0];
 }
-
-if (addressN[0] === 'M') {
-    addressN = addressN.slice(1);
+for (var i = 0, iMax = addressN.length; i < iMax; i++) {
+    addressN[i] = parseInt(addressN[i], 10);
 }
-
-addressN = _.transform(addressN, function (result, it) {
-    if (it.substring(it.length - 1) === "'") {
-        it = '-' + it.substring(0, it.length - 1);
-    }
-
-    if (it === '-0') {
-        result.push(HARDENED_ZERO);
-    } else {
-        result.push(parseInt(it, 10));
-    }
-});
 
 var options = {
     addressN: addressN,

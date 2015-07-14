@@ -5,8 +5,6 @@ var program = require('commander');
 var lib = require('./lib.js');
 var ByteBuffer = require('bytebuffer');
 
-const HARDENED_ZERO = 0x80000000;
-
 program
     .option('-p, --remember-pin', 'remember PIN so you don\'t have to re-enter it')
     .option('-v, --verbose', 'Increase verbosity', lib.bumpVerbosity, 40)

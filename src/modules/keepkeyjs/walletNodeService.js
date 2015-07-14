@@ -12,6 +12,8 @@ var walletNodes = {
     addListener: eventEmitter.addListener.bind(eventEmitter)
 };
 
+var transactionService;
+
 walletNodes.registerPublicKey = function registerPublicKey(publicKeyObject) {
     var oldNodes = JSON.parse(JSON.stringify(walletNodes.nodes));
 
@@ -49,7 +51,7 @@ walletNodes.registerPublicKey = function registerPublicKey(publicKeyObject) {
 
 //TODO Move the address functionality to an AddressService
 
-walletNodes.getAddressList = function () {
+walletNodes.getAddressList = function getAddressList() {
     var addressList = [];
     _.each(walletNodes.nodes, function (node) {
         addressList.push(_.flattenDeep(node.addresses));
@@ -57,7 +59,7 @@ walletNodes.getAddressList = function () {
     return _.collect(_.flattenDeep(addressList), 'address');
 };
 
-walletNodes.addressNodePath = function(address) {
+walletNodes.addressNodePath = function addressNodePath(address) {
     var path = '';
     _.find(walletNodes.nodes, function (node) {
         var addressData =_.find(_.flattenDeep(node.addresses), {
@@ -71,6 +73,20 @@ walletNodes.addressNodePath = function(address) {
     return path;
 };
 
+walletNodes.firstUnusedAddressNode = function firstUnusedAddress(addressArray) {
+    var unusedAddressNode = _.find(addressArray, function(it) {
+        return transactionService.addressIsUnused(it.address);
+    });
+    var nodes = unusedAddressNode.path.split('/');
+    nodes.forEach(function(it, idx, arr) {
+        arr[idx] = parseInt(it);
+    });
+    return nodes;
+};
+
+walletNodes.registerTransactionService = function(service) {
+    transactionService = service;
+};
 
 function populateAddresses(range, node) {
     if (!node.addresses) {

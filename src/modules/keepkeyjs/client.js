@@ -23,7 +23,10 @@ var ByteBuffer = require('bytebuffer');
 var EventEmitter2 = require('eventemitter2').EventEmitter2;
 var hydrate = require('./hydrate.js');
 var featuresService = require('./featuresService.js');
+
+// TODO The next block breaks the CLI, do this differently
 var walletNodeService = require('./walletNodeService.js');
+
 var _ = require('lodash');
 
 var KEEPKEY = 'KEEPKEY';
@@ -74,6 +77,14 @@ function clientMaker(transport, protoBuf) {
     client.getPublicKey = require('./clientActions/getPublicKey.js').bind(client);
     client.endSession = require('./clientActions/endSession.js').bind(client);
 
+    // TODO The next block breaks the CLI, do this differently
+    var transactionSigner = require('./clientActions/transactionSigner.js');
+    client.requestTransactionSignature = transactionSigner
+            .requestTransactionSignature.bind(client);
+    client.onTxRequest = function(message) {
+        transactionSigner.transactionRequestHandler(hydrate(message));
+    };
+
     client.onButtonRequest = function () {
         return client.writeToDevice(new client.protoBuf.ButtonAck());
     };
@@ -97,6 +108,7 @@ function clientMaker(transport, protoBuf) {
         }
     };
 
+    // TODO The next block breaks the CLI, do this differently
     client.onPublicKey = walletNodeService.registerPublicKey;
 
     // Poll for incoming messages

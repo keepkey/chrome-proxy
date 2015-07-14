@@ -7,6 +7,8 @@ const TRANSACTIONS_STORE_NAME = 'transactions';
 const TRANSACTIONS_KEY_PATH = 'id';
 const TRANSACTIONS_NODE_INDEX_NAME = 'node_idx';
 const TRANSACTIONS_NODE_INDEX_PATH = 'walletNode';
+const TRANSACTION_HASH_INDEX_NAME = 'transaction_hash';
+const TRANSACTION_HASH_INDEX_PATH = 'transactionHash';
 
 module.exports = function(event, db, tx) {
     var objStore;
@@ -29,29 +31,32 @@ module.exports = function(event, db, tx) {
         TRANSACTIONS_NODE_INDEX_PATH,
         {unique: false}
     );
+    objStore.createIndex(
+        TRANSACTION_HASH_INDEX_NAME,
+        TRANSACTION_HASH_INDEX_PATH,
+        {unique: false}
+    );
 
     objStore.transaction.oncomplete = function(event) {
         var walletNodeObjectStore = db
             .transaction(NODES_STORE_NAME, "readwrite")
             .objectStore(NODES_STORE_NAME);
 
-        var testWallet1 = {
+        var defaultWallet = {
             hdNode: "m/44'/0'/0'",
             id: 0,
-            name: "Shopping",
-            nodePath: [2147483692, 2147483648, 2147483648],
-            balance: 22.57293
+            name: "My Wallet",
+            nodePath: [2147483692, 2147483648, 2147483648]
         };
-        var testWallet2 = {
+        walletNodeObjectStore.add(defaultWallet);
+
+        var testWallet = {
             hdNode: "m/44'/0'/1'",
             id: 1,
             name: "Retirement Savings",
-            nodePath: [2147483692, 2147483648, 2147483649],
-            balance: 0.65
+            nodePath: [2147483692, 2147483648, 2147483649]
         };
-
-        walletNodeObjectStore.add(testWallet1);
-        walletNodeObjectStore.add(testWallet2);
+        walletNodeObjectStore.add(testWallet);
     };
 
 };

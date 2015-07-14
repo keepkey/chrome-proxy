@@ -97,6 +97,9 @@ dispatcher.when('GetWalletNodes', function(client, request) {
 dispatcher.when('GetTransactions', function(client, request) {
     sendMessageToUI('Transactions', transactionService.transactions);
 });
+dispatcher.when('RequestTransactionSignature', function(client, request) {
+    return client.requestTransactionSignature(request);
+});
 
 dispatcher.otherwise(function (request, response, sendResponse) {
     sendResponse({
