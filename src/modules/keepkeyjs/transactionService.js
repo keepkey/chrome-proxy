@@ -23,7 +23,7 @@ var HttpClient = function () {
                 }
             };
             request.open(method, aUrl, true);
-            request.send(JSON.stringify({"signed_hex": payload}));
+            request.send(payload);
         });
     }
     this.get = _.curryRight(send)(null, 'GET');
@@ -52,7 +52,9 @@ transactions.sendTransaction = function(rawtransaction) {
     return httpClient.post(
         'https://api.chain.com/v2/bitcoin/transactions/send' +
         '?api-key-id=' + chainApiKey,
-        rawtransaction.toHex()
+        JSON.stringify({
+            "signed_hex": rawtransaction.toHex()
+        })
     );
 };
 
@@ -68,7 +70,7 @@ function storeTransaction(db, transaction) {
         eventEmitter.emit('changed', transactions.transactions);
     };
 
-    return store.put(transaction);
+    return store.put(_.omit(transaction, '$$idPromise'));
 }
 
 function upsertTransaction(transactionFragment) {

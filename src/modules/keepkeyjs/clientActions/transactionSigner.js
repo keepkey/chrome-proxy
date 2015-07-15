@@ -53,12 +53,14 @@ function createTransaction(request) {
 
     var sourceWallet = walletNodeService.nodes[0];
 
-    newTransaction.outputs.push({
-        address_n: sourceWallet.nodePath.concat(
-            walletNodeService.firstUnusedAddressNode(sourceWallet.addresses[1])
-        ),
-        amount: totalSent - totalSpent
-    });
+    if ((totalSent - totalSpent) > 0) {
+        newTransaction.outputs.push({
+            address_n: sourceWallet.nodePath.concat(
+                walletNodeService.firstUnusedAddressNode(sourceWallet.addresses[1])
+            ),
+            amount: totalSent - totalSpent
+        });
+    }
 
     return newTransaction;
 }
@@ -214,10 +216,9 @@ transactionSigner.transactionRequestHandler = function transactionRequestHandler
     }
 
     if (request.serialized && request.serialized.signature_index) {
-        if (signatures[request.signature_index]) {
-            throw 'signature already filled in';
+        if (!signatures[request.signature_index]) {
+            signatures[request.signature_index] = request.serialized.signature;
         }
-        signatures[request.signature_index] = request.serialized.signature;
     }
 
     if (request.request_type === TXINPUT) {
