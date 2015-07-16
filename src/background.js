@@ -95,7 +95,15 @@ dispatcher.when('GetWalletNodes', function(client, request) {
 });
 
 dispatcher.when('GetTransactions', function(client, request) {
-    sendMessageToUI('Transactions', transactionService.transactions);
+    if (request.reload) {
+        transactionService.reloadTransactions()
+            .then(function(){
+                sendMessageToUI('Transactions', transactionService.transactions);
+            });
+    }
+    else {
+        sendMessageToUI('Transactions', transactionService.transactions);
+    }
 });
 dispatcher.when('RequestTransactionSignature', function(client, request) {
     return client.requestTransactionSignature(request)
