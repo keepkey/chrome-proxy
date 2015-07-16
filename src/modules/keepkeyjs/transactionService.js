@@ -6,6 +6,9 @@ var walletNodeService = require('./walletNodeService.js');
 
 const TRANSACTIONS_STORE_NAME = 'transactions';
 
+const SPENT = -1;
+const RECEIVED = 1;
+
 var eventEmitter = new EventEmitter2();
 
 //TODO Move this to a module
@@ -49,6 +52,7 @@ transactions.getByTransactionHash = function(hash) {
 };
 
 transactions.sendTransaction = function(rawtransaction) {
+    console.log('raw tx:', rawtransaction.toHex());
     return httpClient.post(
         'https://api.chain.com/v2/bitcoin/transactions/send' +
         '?api-key-id=' + chainApiKey,
@@ -58,8 +62,30 @@ transactions.sendTransaction = function(rawtransaction) {
     );
 };
 
-const SPENT = -1;
-const RECEIVED = 1;
+transactions.reloadTransactions = function requestTransactionsFromBlockchainProvider() {
+    var walletAddresses = walletNodeService.getAddressList();
+
+    if (walletAddresses.length) {
+        var url = [
+            'https://api.chain.com/v2/bitcoin/addresses/',
+            walletAddresses.join(','),
+            '/transactions?api-key-id=',
+            chainApiKey,
+            '&limit=500'
+        ].join('');
+
+        return httpClient.get(url)
+            .then(function (data) {
+                _.each(data, function (transaction) {
+                    _.each(transaction.inputs, processTransactionSegmentFactory(walletAddresses, SPENT, transaction));
+                    _.each(transaction.outputs, processTransactionSegmentFactory(walletAddresses, RECEIVED, transaction));
+                });
+            });
+    }
+    else {
+        return Promise.resolve();
+    }
+};
 
 function storeTransaction(db, transaction) {
     var store = db
@@ -137,31 +163,6 @@ function processTransactionFragment(walletAddresses, type, transaction, fragment
 
 var processTransactionSegmentFactory = _.curry(processTransactionFragment);
 
-var requestTransactionsFromBlockchainProvider = function () {
-    var walletAddresses = walletNodeService.getAddressList();
-
-    if (walletAddresses.length) {
-        var url = [
-            'https://api.chain.com/v2/bitcoin/addresses/',
-            walletAddresses.join(','),
-            '/transactions?api-key-id=',
-            chainApiKey,
-            '&limit=500'
-        ].join('');
-
-        return httpClient.get(url)
-            .then(function (data) {
-                _.each(data, function (transaction) {
-                    _.each(transaction.inputs, processTransactionSegmentFactory(walletAddresses, SPENT, transaction));
-                    _.each(transaction.outputs, processTransactionSegmentFactory(walletAddresses, RECEIVED, transaction));
-                });
-            });
-    }
-    else {
-        return Promise.resolve();
-    }
-};
-
 var getTransactionsFromLocalDataStore = function (db) {
     // Get existing transactions from indexeddb
     return new Promise(function (resolve) {
@@ -226,9 +227,10 @@ var subscribeToNewTransactions = function (db) {
 dbPromise
     .then(getTransactionsFromLocalDataStore)
     .then(subscribeToNewTransactions)
-    .then(requestTransactionsFromBlockchainProvider)
+    .then(transactions.requestTransactionsFromBlockchainProvider)
     .then(function () {
-        walletNodeService.addListener('changed', requestTransactionsFromBlockchainProvider);
+        walletNodeService.addListener('changed',
+            transactions.requestTransactionsFromBlockchainProvider);
     });
 
 walletNodeService.registerTransactionService(transactions);

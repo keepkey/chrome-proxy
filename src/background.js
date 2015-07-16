@@ -98,7 +98,10 @@ dispatcher.when('GetTransactions', function(client, request) {
     sendMessageToUI('Transactions', transactionService.transactions);
 });
 dispatcher.when('RequestTransactionSignature', function(client, request) {
-    return client.requestTransactionSignature(request);
+    return client.requestTransactionSignature(request)
+        .catch(function(message) {
+            return sendMessageToUI('Failure', {message: message});
+        });
 });
 
 dispatcher.otherwise(function (request, response, sendResponse) {

@@ -29,20 +29,31 @@ function createTransaction(request) {
     };
 
     var fee = 10000;
-    var totalSpent = request.amount + fee;
+    var minimumRequiredInputAmount = request.amount + fee;
 
-    var totalSent = 0;
+    var selectedInputAmountTotal = 0;
 
-    newTransaction.inputs = _.reduce(transactionService.transactions, function (transactions, transaction) {
-        if (totalSent < totalSpent && transaction.amount > 0 && !transaction.spent) {
-            transactions.push(transaction);
-            totalSent += transaction.amount;
+    var sourceWallet = walletNodeService.nodes[request.sourceIndex];
+
+    function isFromSourceWallet(transaction) {
+        return transaction.nodePath.indexOf(sourceWallet.hdNode) === 0;
+    }
+
+    function inputSelector(selectedInputs, candidateTransaction) {
+        if (selectedInputAmountTotal < minimumRequiredInputAmount &&
+            candidateTransaction.amount > 0 &&
+            !candidateTransaction.spent &&
+            isFromSourceWallet(candidateTransaction)) {
+            selectedInputs.push(candidateTransaction);
+            selectedInputAmountTotal += candidateTransaction.amount;
         }
-        return transactions;
-    }, []);
+        return selectedInputs;
+    }
+
+    newTransaction.inputs = _.reduce(transactionService.transactions, inputSelector, []);
 
 
-    if (totalSent < totalSpent) {
+    if (selectedInputAmountTotal < minimumRequiredInputAmount) {
         throw 'You do not have enough bitcoins';
     }
 
@@ -51,14 +62,12 @@ function createTransaction(request) {
         amount: request.amount
     });
 
-    var sourceWallet = walletNodeService.nodes[0];
-
-    if ((totalSent - totalSpent) > 0) {
+    if ((selectedInputAmountTotal - minimumRequiredInputAmount) > 0) {
         newTransaction.outputs.push({
             address_n: sourceWallet.nodePath.concat(
                 walletNodeService.firstUnusedAddressNode(sourceWallet.addresses[1])
             ),
-            amount: totalSent - totalSpent
+            amount: selectedInputAmountTotal - minimumRequiredInputAmount
         });
     }
 
@@ -80,7 +89,6 @@ transactionSigner.requestTransactionSignature = function requestTransactionSigna
 
             message = new client.protoBuf.SignTx(
                 newTransaction.outputs.length, newTransaction.inputs.length, 'Bitcoin');
-
             return client.writeToDevice(message);
         });
 };
@@ -249,7 +257,10 @@ transactionSigner.transactionRequestHandler = function transactionRequestHandler
     }
     else if (request.request_type === TXFINISHED) {
         // Send the Transactions
-        transactionService.sendTransaction(serializedTransaction);
+        transactionService.sendTransaction(serializedTransaction)
+            .then(function() {
+                return transactionService.reloadTransactions();
+            });
     }
 };
 
