@@ -132,7 +132,7 @@ function clientMaker(transport, protoBuf) {
                     }
                 });
         }
-    }, 1000);
+    }, 0);
 
     client.stopPolling = function () {
         clearInterval(client.devicePollingInterval);
