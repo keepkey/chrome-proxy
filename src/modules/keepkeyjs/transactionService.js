@@ -186,47 +186,8 @@ var getTransactionsFromLocalDataStore = function (db) {
     });
 };
 
-var subscribeToNewTransactions = function (db) {
-    return new Promise(function (resolve) {
-        var conn = new WebSocket("wss://ws.chain.com/v2/notifications");
-        conn.onopen = function (ev) {
-            _.each(walletNodeService.getAddressList(), function (address) {
-                var req = {
-                    type: "address",
-                    address: address,
-                    block_chain: "bitcoin"
-                };
-                conn.send(JSON.stringify(req));
-            });
-            resolve(db);
-        };
-        conn.onmessage = function (ev) {
-            var transaction = JSON.parse(ev.data).payload;
-            if (transaction.type === 'address') {
-                //FIXME This doesn't fill in all of the fields that are needed.
-                //FIXME It leaves the data in a corrupted state.
-                //upsertTransaction({
-                //    transactionHash: transaction.transaction_hash,
-                //    fragmentIndex: transaction.sent ?
-                //        _.indexOf(transaction.input_addresses, transaction.address) :
-                //        _.indexOf(transaction.output_addresses, transaction.address),
-                //    address: transaction.address,
-                //    nodePath: walletNodeService.addressNodePath(transaction.address),
-                //    type: transaction.sent ? SPENT : RECEIVED,
-                //    amount: transaction.received - transaction.sent,
-                //    confirmations: transaction.confirmations,
-                //    spent: transaction.spent
-                //});
-            }
-        };
-        conn.onclose = function (ev) {
-            console.error('>>>>>>>>>>>>>>>websocket closed<<<<<<<<<<<<<<<<<<');
-        };
-    });
-};
 dbPromise
     .then(getTransactionsFromLocalDataStore)
-    .then(subscribeToNewTransactions)
     .then(transactions.requestTransactionsFromBlockchainProvider)
     .then(function () {
         walletNodeService.addListener('changed',
