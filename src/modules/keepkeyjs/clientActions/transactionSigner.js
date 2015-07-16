@@ -259,7 +259,12 @@ transactionSigner.transactionRequestHandler = function transactionRequestHandler
         // Send the Transactions
         transactionService.sendTransaction(serializedTransaction)
             .then(function() {
-                return transactionService.reloadTransactions();
+                return new Promise(function(resolve) {
+                    setTimeout(function() {
+                        transactionService.reloadTransactions()
+                            .then(resolve);
+                    }, 1000);
+                });
             });
     }
 };
