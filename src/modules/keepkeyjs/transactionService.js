@@ -3,6 +3,7 @@ var dbPromise = require('./dbPromise.js');
 var EventEmitter2 = require('eventemitter2').EventEmitter2;
 var chainApiKey = 'bae5d67396c223d643b574df299225ba';
 var walletNodeService = require('./walletNodeService.js');
+var httpClient = require('./HttpClient.js');
 
 const TRANSACTIONS_STORE_NAME = 'transactions';
 
@@ -10,30 +11,6 @@ const SPENT = -1;
 const RECEIVED = 1;
 
 var eventEmitter = new EventEmitter2();
-
-//TODO Move this to a module
-var HttpClient = function () {
-    function send(aUrl, payload, method) {
-        return new Promise(function (resolve, reject) {
-            var request = new XMLHttpRequest();
-            request.onreadystatechange = function () {
-                if (request.readyState === 4) {
-                    if (request.status === 200) {
-                        resolve(JSON.parse(request.response));
-                    } else {
-                        reject(request.status);
-                    }
-                }
-            };
-            request.open(method, aUrl, true);
-            request.send(payload);
-        });
-    }
-    this.get = _.curryRight(send)(null, 'GET');
-    this.post = _.curryRight(send)('POST');
-};
-
-var httpClient = new HttpClient();
 
 var transactions = {
     transactions: [],
@@ -80,6 +57,9 @@ transactions.reloadTransactions = function requestTransactionsFromBlockchainProv
                     _.each(transaction.inputs, processTransactionSegmentFactory(walletAddresses, SPENT, transaction));
                     _.each(transaction.outputs, processTransactionSegmentFactory(walletAddresses, RECEIVED, transaction));
                 });
+            })
+            .then(function(data) {
+                eventEmitter.emit('changed');
             });
     }
     else {
@@ -92,16 +72,10 @@ function storeTransaction(db, transaction) {
         .transaction(TRANSACTIONS_STORE_NAME, 'readwrite')
         .objectStore(TRANSACTIONS_STORE_NAME);
 
-    store.transaction.oncomplete = function (event) {
-        eventEmitter.emit('changed', transactions.transactions);
-    };
-
     return store.put(_.omit(transaction, '$$idPromise'));
 }
 
 function upsertTransaction(transactionFragment) {
-    var oldTransactions = JSON.parse(JSON.stringify(transactions.transactions));
-
     var criteria = {
         transactionHash: transactionFragment.transactionHash,
         type: transactionFragment.type,
@@ -118,7 +92,7 @@ function upsertTransaction(transactionFragment) {
         transactions.transactions.push(transactionFragment);
     }
 
-    dbPromise.then(function (db) {
+    return dbPromise.then(function (db) {
         var request;
         if (transactionFragment.id) {
             storeTransaction(db, transactionFragment);
@@ -147,7 +121,7 @@ function upsertTransaction(transactionFragment) {
 function processTransactionFragment(walletAddresses, type, transaction, fragment, index) {
     var matches = _.intersection(fragment.addresses, walletAddresses);
     if (matches.length) {
-        upsertTransaction({
+        return upsertTransaction({
             transactionHash: transaction.hash,
             fragmentIndex: index,
             address: (matches.length === 1) ? matches[0] : matches,
@@ -164,7 +138,6 @@ function processTransactionFragment(walletAddresses, type, transaction, fragment
 var processTransactionSegmentFactory = _.curry(processTransactionFragment);
 
 var getTransactionsFromLocalDataStore = function (db) {
-    // Get existing transactions from indexeddb
     return new Promise(function (resolve) {
         var store = db
             .transaction(TRANSACTIONS_STORE_NAME, 'readonly')

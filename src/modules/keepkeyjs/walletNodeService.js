@@ -36,7 +36,7 @@ walletNodes.registerPublicKey = function registerPublicKey(publicKeyObject) {
     match.fingerprint = publicKeyObject.node.fingerprint;
     match.publicKey = publicKeyObject.node.public_key.toHex();
 
-    populateAddresses('[0-1]/[0-19]', match);
+    populateAddresses('[0-1]/[0-39]', match);
 
     dbPromise.then(function (db) {
         var store = db

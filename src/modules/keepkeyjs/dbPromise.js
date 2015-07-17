@@ -1,4 +1,8 @@
-window.indexedDB = window.indexedDB || window.mozIndexedDB || window.webkitIndexedDB || window.msIndexedDB;
+var indexedDB;
+
+if (typeof window !== 'undefined') {
+    indexedDB = window.indexedDB || window.mozIndexedDB || window.webkitIndexedDB || window.msIndexedDB;
+}
 
 const DB_NAME = 'blockchain-wallet';
 
@@ -16,7 +20,7 @@ var applyNeededUpgrades = function (oldVersion, event, db, tx) {
 };
 
 module.exports = new Promise(function (resolve) {
-    var request = window.indexedDB.open(DB_NAME, 1);
+    var request = indexedDB.open(DB_NAME, 1);
     request.onsuccess = function (event) {
         resolve(event.target.result);
     };

@@ -256,14 +256,13 @@ transactionSigner.transactionRequestHandler = function transactionRequestHandler
         return client.writeToDevice(transactionTypeFactory(options));
     }
     else if (request.request_type === TXFINISHED) {
-        // Send the Transactions
         transactionService.sendTransaction(serializedTransaction)
             .then(function() {
                 return new Promise(function(resolve) {
                     setTimeout(function() {
                         transactionService.reloadTransactions()
                             .then(resolve);
-                    }, 1000);
+                    }, 3000);
                 });
             });
     }

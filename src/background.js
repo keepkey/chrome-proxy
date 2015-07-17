@@ -150,8 +150,8 @@ walletNodeService.addListener('changed', function (nodes, oldNodes) {
     sendMessageToUI('WalletNodes', nodes);
 });
 
-transactionService.addListener('changed', function (nodes, oldNodes) {
-    sendMessageToUI('Transactions', nodes);
+transactionService.addListener('changed', function () {
+    sendMessageToUI('Transactions', transactionService.transactions);
 });
 
 module.exports = {
