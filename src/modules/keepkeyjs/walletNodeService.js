@@ -14,9 +14,22 @@ var walletNodes = {
 
 var transactionService;
 
-walletNodes.registerPublicKey = function registerPublicKey(publicKeyObject) {
-    var oldNodes = JSON.parse(JSON.stringify(walletNodes.nodes));
+var emitChangeEvent = _.throttle(function() {
+    eventEmitter.emit('changed', walletNodes.node);
+}, 100, {trailing: true});
 
+var saveNode = function(match) {
+    dbPromise.then(function (db) {
+        var store = db
+            .transaction(NODES_STORE_NAME, 'readwrite')
+            .objectStore(NODES_STORE_NAME);
+        store.put(match);
+    });
+
+    emitChangeEvent();
+};
+
+walletNodes.registerPublicKey = function registerPublicKey(publicKeyObject) {
     var matches = _.filter(walletNodes.nodes, function (it) {
         var childNum = it.nodePath[it.nodePath.length - 1];
         var level = it.nodePath.length;
@@ -36,17 +49,8 @@ walletNodes.registerPublicKey = function registerPublicKey(publicKeyObject) {
     match.fingerprint = publicKeyObject.node.fingerprint;
     match.publicKey = publicKeyObject.node.public_key.toHex();
 
-    populateAddresses('[0-1]/[0-39]', match);
-
-    dbPromise.then(function (db) {
-        var store = db
-            .transaction(NODES_STORE_NAME, 'readwrite')
-            .objectStore(NODES_STORE_NAME);
-
-        store.put(match);
-    });
-
-    eventEmitter.emit('changed', walletNodes.nodes, oldNodes);
+    populateAddresses('[0-1]/[0-19]', match);
+    saveNode(match);
 };
 
 //TODO Move the address functionality to an AddressService
@@ -62,7 +66,7 @@ walletNodes.getAddressList = function getAddressList() {
 walletNodes.addressNodePath = function addressNodePath(address) {
     var path = '';
     _.find(walletNodes.nodes, function (node) {
-        var addressData =_.find(_.flattenDeep(node.addresses), {
+        var addressData = _.find(_.flattenDeep(node.addresses), {
             address: address
         });
         if (addressData) {
@@ -74,18 +78,49 @@ walletNodes.addressNodePath = function addressNodePath(address) {
 };
 
 walletNodes.firstUnusedAddressNode = function firstUnusedAddress(addressArray) {
-    var unusedAddressNode = _.find(addressArray, function(it) {
+    var unusedAddressNode = _.find(addressArray, function (it) {
         return transactionService.addressIsUnused(it.address);
     });
     var nodes = unusedAddressNode.path.split('/');
-    nodes.forEach(function(it, idx, arr) {
+    nodes.forEach(function (it, idx, arr) {
         arr[idx] = parseInt(it);
     });
     return nodes;
 };
 
-walletNodes.registerTransactionService = function(service) {
+function updateAddressPools() {
+    var addressPools = _.groupBy(transactionService.countTransactionsByNode(), function (count, nodeId) {
+        return nodeId.split('/').slice(0, -1).join('/');
+    });
+    var maxIndexes = _.reduce(addressPools, function (result, pool, poolId) {
+        var max = Math.max.apply(this, _.keys(pool));
+        result[poolId] = max;
+        return result;
+    }, {});
+    var walletPools = _.groupBy(maxIndexes, function (max, poolId) {
+        return poolId.split('/').slice(0, -1).join('/');
+    });
+    var ranges = _.each(walletPools, function (pools, walletId) {
+        _.each(pools, function (pool, poolIndex) {
+            var ranges = [
+                {start: poolIndex, end: poolIndex},
+                {start: 0, end: pool + 20}
+            ];
+
+            var wallet = _.find(walletNodes.nodes, {hdNode: walletId});
+
+            var oldWallet = JSON.stringify(wallet);
+            scanNodes(bitcore.HDPublicKey(wallet.xpub), '', wallet.addresses, ranges);
+            if (oldWallet !== JSON.stringify(wallet)) {
+                saveNode(wallet);
+            }
+        });
+    }, []);
+}
+
+walletNodes.registerTransactionService = function (service) {
     transactionService = service;
+    transactionService.addListener('changed', updateAddressPools);
 };
 
 function populateAddresses(range, node) {
@@ -104,11 +139,13 @@ function scanNodes(publicKey, path, addresses, ranges) {
             addresses[i] = scanNodes(derivedKey, derivedPath, addresses[i] || [], ranges.slice(1));
         }
         else {
-            addresses[i] = {
-                xpub: derivedKey.publicKey.toString(),
-                address: derivedKey.publicKey.toAddress().toString(),
-                path: derivedPath
-            };
+            if (!addresses[i]) {
+                addresses[i] = {
+                    xpub: derivedKey.publicKey.toString(),
+                    address: derivedKey.publicKey.toAddress().toString(),
+                    path: derivedPath
+                };
+            }
         }
     }
     return addresses;
@@ -140,8 +177,6 @@ walletNodes.nodesPromise = dbPromise.then(function (db) {
             .transaction(NODES_STORE_NAME, 'readonly')
             .objectStore(NODES_STORE_NAME);
 
-        var oldNodes = JSON.parse(JSON.stringify(walletNodes.nodes));
-
         store.openCursor().onsuccess = function (event) {
             var cursor = event.target.result;
             if (cursor) {
@@ -149,7 +184,7 @@ walletNodes.nodesPromise = dbPromise.then(function (db) {
                 cursor.continue();
             }
             else {
-                eventEmitter.emit('changed', walletNodes.nodes, oldNodes);
+                emitChangeEvent();
                 resolve(walletNodes.nodes);
             }
         };

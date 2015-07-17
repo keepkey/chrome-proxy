@@ -21,6 +21,10 @@ transactions.addressIsUnused = function(address) {
     return !_.find(transactions.transactions, {address: address});
 };
 
+transactions.countTransactionsByNode = function() {
+    return _.countBy(transactions.transactions, 'nodePath');
+};
+
 transactions.getByTransactionHash = function(hash) {
     var txFrag =  _.find(transactions.transactions, {
         transactionHash: hash
@@ -161,10 +165,10 @@ var getTransactionsFromLocalDataStore = function (db) {
 
 dbPromise
     .then(getTransactionsFromLocalDataStore)
-    .then(transactions.requestTransactionsFromBlockchainProvider)
+    .then(transactions.reloadTransactions)
     .then(function () {
         walletNodeService.addListener('changed',
-            transactions.requestTransactionsFromBlockchainProvider);
+            transactions.reloadTransactions);
     });
 
 walletNodeService.registerTransactionService(transactions);
