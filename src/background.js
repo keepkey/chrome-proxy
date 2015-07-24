@@ -146,8 +146,8 @@ function sendMessageToUI(type, message) {
     );
 }
 
-walletNodeService.addListener('changed', function (nodes, oldNodes) {
-    sendMessageToUI('WalletNodes', nodes);
+walletNodeService.addListener('changed', function () {
+    sendMessageToUI('WalletNodes', walletNodeService.nodes);
 });
 
 transactionService.addListener('changed', function () {
