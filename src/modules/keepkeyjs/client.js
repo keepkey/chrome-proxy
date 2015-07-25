@@ -95,6 +95,7 @@ function clientMaker(transport, protoBuf) {
 
     client.onFeatures = function (message) {
         featuresService.setValue(message);
+        walletNodeService.reloadData();
         return message;
     };
 
