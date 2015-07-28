@@ -61,6 +61,7 @@ function clientMaker(transport, protoBuf) {
     client.crypto = require('./chrome/chromeCrypto.js');
 
     client.initialize = function () {
+        walletNodeService.reloadData();
         return client.writeToDevice(new client.protoBuf.Initialize());
     };
     client.cancel = require('./clientActions/cancel.js').bind(client);

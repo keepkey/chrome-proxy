@@ -164,7 +164,7 @@ var getTransactionsFromLocalDataStore = function (db) {
 };
 
 dbPromise
-    .then(getTransactionsFromLocalDataStore)
+    //.then(getTransactionsFromLocalDataStore)
     .then(transactions.reloadTransactions)
     .then(function () {
         walletNodeService.addListener('changed',

@@ -15,9 +15,9 @@ var walletNodes = {
 
 var transactionService;
 
-var emitChangeEvent = _.throttle(function () {
+var emitChangeEvent = function () {
   eventEmitter.emit('changed', walletNodes.node);
-}, 100, {trailing: true});
+};
 
 var saveNode = function (match) {
   dbPromise.then(function (db) {
@@ -39,6 +39,8 @@ walletNodes.registerPublicKey = function registerPublicKey(publicKeyObject) {
   });
 
   if (matches.length !== 1) {
+    // TODO Throw an error to the user. This idicates that the key on the device doesn't
+    // match the key in the DB.
     console.error('error while matching public key to a node');
     return;
   }
@@ -192,42 +194,89 @@ function addDeviceIdToNodesWithoutIt() {
 
 var nodesResolved = false;
 
-var loadValuesFromDatabase = function() {
-  nodesResolved = false;
-  return new Promise(function(resolve) {
-    dbPromise.then(function (db) {
-      featuresService.getPromise()
-        .then(function (features) {
-          walletNodes.nodes.length = 0;
+var addDefaultWalletNodes = function (db) {
+  var promise = featuresService.getPromise();
 
-          var store = db
-            .transaction(NODES_STORE_NAME, 'readonly')
-            .objectStore(NODES_STORE_NAME);
+  var walletNodeObjectStore = db
+    .transaction(NODES_STORE_NAME, "readwrite")
+    .objectStore(NODES_STORE_NAME);
 
-          store.openCursor().onsuccess = function (event) {
-            var cursor = event.target.result;
-            if (cursor) {
-              if (!cursor.value.deviceId || cursor.value.deviceId === features.label) {
-                walletNodes.nodes.push(cursor.value);
-              }
-              cursor.continue();
-            }
-            else {
-              addDeviceIdToNodesWithoutIt().then(function () {
-                emitChangeEvent();
-                nodesResolved = true;
-                resolve(walletNodes.nodes);
-              });
-            }
-          };
-        });
-    });
+  promise.then(function (features) {
+    var defaultWallet = {
+      hdNode: "m/44'/0'/0'",
+      name: "My Wallet",
+      nodePath: [2147483692, 2147483648, 2147483648],
+      deviceId: features.label
+    };
+    walletNodeObjectStore.add(defaultWallet);
+    walletNodes.nodes.push(defaultWallet);
+
+    var testWallet = {
+      hdNode: "m/44'/0'/1'",
+      name: "Retirement Savings",
+      nodePath: [2147483692, 2147483648, 2147483649],
+      deviceId: features.label
+    };
+    walletNodeObjectStore.add(testWallet);
+    walletNodes.nodes.push(testWallet);
   });
+  return promise;
+};
+
+var loadValuesFromDatabase = function () {
+  nodesResolved = false;
+
+  return featuresService.getPromise()
+    .then(function (features) {
+      return new Promise(function (resolve, reject) {
+        return dbPromise
+          .then(function (db) {
+            if (!features.initialized) {
+              reject('Device not initialized');
+            } else {
+              walletNodes.nodes.length = 0;
+
+              var store = db
+                .transaction(NODES_STORE_NAME, 'readonly')
+                .objectStore(NODES_STORE_NAME);
+
+              store.openCursor().onsuccess = function (event) {
+                var cursor = event.target.result;
+                if (cursor) {
+                  console.log(cursor.value);
+                  if (!cursor.value.deviceId || cursor.value.deviceId === features.label) {
+                    console.log('match!!!!!!!!!!');
+                    walletNodes.nodes.push(cursor.value);
+                  }
+                  cursor.continue();
+                }
+                else {
+                  addDeviceIdToNodesWithoutIt()
+                    .then(function () {
+                      if (walletNodes.nodes.length === 0) {
+                        return addDefaultWalletNodes(db);
+                      }
+                      console.log('wallets for this device:', walletNodes.nodes);
+                    })
+                    .then(function () {
+                      emitChangeEvent();
+                      nodesResolved = true;
+                      resolve(walletNodes.nodes);
+                    });
+                }
+              };
+            }
+          });
+      });
+    })
+    .catch(function (msg) {
+      console.log('$$$$$$$$$:', msg);
+    });
 };
 
 walletNodes.nodesPromise = loadValuesFromDatabase();
 
-walletNodes.reloadData = function() {
+walletNodes.reloadData = function () {
   if (nodesResolved) {
     walletNodes.nodesPromise = loadValuesFromDatabase();
   }
