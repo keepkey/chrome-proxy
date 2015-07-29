@@ -39,7 +39,7 @@ walletNodes.registerPublicKey = function registerPublicKey(publicKeyObject) {
   });
 
   if (matches.length !== 1) {
-    // TODO Throw an error to the user. This idicates that the key on the device doesn't
+    // TODO Throw an error to the user. This indicates that the key on the device doesn't
     // match the key in the DB.
     console.error('error while matching public key to a node');
     return;
@@ -243,9 +243,7 @@ var loadValuesFromDatabase = function () {
               store.openCursor().onsuccess = function (event) {
                 var cursor = event.target.result;
                 if (cursor) {
-                  console.log(cursor.value);
                   if (!cursor.value.deviceId || cursor.value.deviceId === features.label) {
-                    console.log('match!!!!!!!!!!');
                     walletNodes.nodes.push(cursor.value);
                   }
                   cursor.continue();
@@ -256,7 +254,6 @@ var loadValuesFromDatabase = function () {
                       if (walletNodes.nodes.length === 0) {
                         return addDefaultWalletNodes(db);
                       }
-                      console.log('wallets for this device:', walletNodes.nodes);
                     })
                     .then(function () {
                       emitChangeEvent();
@@ -270,7 +267,7 @@ var loadValuesFromDatabase = function () {
       });
     })
     .catch(function (msg) {
-      console.log('$$$$$$$$$:', msg);
+      console.log('Rejected promise caught:', msg);
     });
 };
 
