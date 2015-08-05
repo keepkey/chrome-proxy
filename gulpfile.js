@@ -81,7 +81,7 @@ gulp.task('bumpMajor', function () {
 
 gulp.task('zip', ['browserify', 'copyAssets', 'copyManifest', 'buildConfig', 'copyFirmwareImage', 'copyHtml'], function() {
     return gulp.src('dist/**/*')
-        .pipe(zip('keepkey-proxy-test.zip'))
+        .pipe(zip('keepkey-proxy-' + environment + '.zip'))
         .pipe(gulp.dest('.'));
 });
 
