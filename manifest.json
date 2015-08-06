@@ -1,7 +1,7 @@
 {
   "name": "KeepKey Proxy",
-  "version": "0.0.21",
-  "description": "Provide a communication bridge between the KeepKey Wallet and a KeepKey device",
+  "version": "0.0.23",
+  "description": "Provides a communication bridge between the KeepKey Wallet and a KeepKey device",
   "manifest_version": 2,
   "icons": {
     "128": "images/icon.png"

@@ -81,13 +81,16 @@ gulp.task('bumpMajor', function () {
 
 gulp.task('zip', ['browserify', 'copyAssets', 'copyManifest', 'buildConfig', 'copyFirmwareImage', 'copyHtml'], function() {
     return gulp.src('dist/**/*')
-        .pipe(zip('keepkey-proxy-test.zip'))
+        .pipe(zip('keepkey-proxy-' + environment + '.zip'))
         .pipe(gulp.dest('.'));
 });
 
 gulp.task('copyManifest', function() {
+    var environmentTag = (environment !== "prod") ?
+      ' (' + environment + ')' : '';
     return gulp.src('manifest.json')
-        .pipe(gulp.dest('dist'));
+      .pipe(replace(/"name": "KeepKey Proxy.*"/g, '"name": "KeepKey Proxy' + environmentTag + '"'))
+      .pipe(gulp.dest('dist'));
 });
 
 gulp.task('copyHtml', ['buildConfig'], function() {
