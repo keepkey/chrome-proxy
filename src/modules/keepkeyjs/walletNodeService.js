@@ -24,7 +24,11 @@ var saveNode = function (match) {
     var store = db
       .transaction(NODES_STORE_NAME, 'readwrite')
       .objectStore(NODES_STORE_NAME);
-    store.put(match);
+    var updateRequest = store.put(match);
+    updateRequest.onsuccess = function(event) {
+      match.id = event.target.result;
+    };
+
   });
 
   emitChangeEvent();
@@ -211,7 +215,10 @@ var addDefaultWalletNodes = function (db) {
       nodePath: [2147483692, 2147483648, 2147483648],
       deviceId: features.label
     };
-    walletNodeObjectStore.add(defaultWallet);
+    var addDefaultWalletRequest = walletNodeObjectStore.add(defaultWallet);
+    addDefaultWalletRequest.onsuccess = function(event) {
+      defaultWallet.id = event.target.result;
+    };
     walletNodes.nodes.push(defaultWallet);
 
     var testWallet = {
@@ -220,7 +227,10 @@ var addDefaultWalletNodes = function (db) {
       nodePath: [2147483692, 2147483648, 2147483649],
       deviceId: features.label
     };
-    walletNodeObjectStore.add(testWallet);
+    var addTestWalletRequest = walletNodeObjectStore.add(testWallet);
+    addTestWalletRequest.onsuccess = function(event) {
+      testWallet.id = event.target.result;
+    };
     walletNodes.nodes.push(testWallet);
   });
   return promise;
@@ -281,6 +291,11 @@ walletNodes.reloadData = function () {
   if (nodesResolved) {
     walletNodes.nodesPromise = loadValuesFromDatabase();
   }
+};
+
+walletNodes.clear = function() {
+  walletNodes.nodes.length = 0;
+  emitChangeEvent();
 };
 
 module.exports = walletNodes;

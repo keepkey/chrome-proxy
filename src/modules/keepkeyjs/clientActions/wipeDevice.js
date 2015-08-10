@@ -7,7 +7,7 @@ module.exports = function wipeDevice() {
 
   var clearNodesOnSuccess = function(type, message) {
     if (type === "Success") {
-      walletNodeService.clearNodes();
+      walletNodeService.clear();
       client.eventEmitter.off('DeviceMessage', clearNodesOnSuccess);
       featuresService.clear();
     }
