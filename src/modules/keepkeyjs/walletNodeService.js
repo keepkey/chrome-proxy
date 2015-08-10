@@ -16,7 +16,7 @@ var walletNodes = {
 var transactionService;
 
 var emitChangeEvent = function () {
-  eventEmitter.emit('changed', walletNodes.node);
+  eventEmitter.emit('changed', walletNodes.nodes);
 };
 
 var saveNode = function (match) {
@@ -30,30 +30,34 @@ var saveNode = function (match) {
   emitChangeEvent();
 };
 
-walletNodes.registerPublicKey = function registerPublicKey(publicKeyObject) {
-  var matches = _.filter(walletNodes.nodes, function (it) {
+walletNodes.findNodeByPublicKey = function (publicKeyObject) {
+  // NOTE: This only works because the node depth is always 3 and the
+  // 2 nodes above it are always M/44'/0'. If this changes, this function
+  // will break.
+
+  return _.filter(walletNodes.nodes, function (it) {
     var childNum = it.nodePath[it.nodePath.length - 1];
     var level = it.nodePath.length;
     return childNum === publicKeyObject.node.child_num &&
       level === publicKeyObject.node.depth;
   });
+};
 
-  if (matches.length !== 1) {
-    // TODO Throw an error to the user. This indicates that the key on the device doesn't
-    // match the key in the DB.
-    console.error('error while matching public key to a node');
-    return;
+walletNodes.registerPublicKey = function registerPublicKey(node, publicKeyObject) {
+  if (node.xpub !== publicKeyObject.xpub) {
+    node.xpub = publicKeyObject.xpub;
+    node.chainCode = publicKeyObject.node.chain_code.toHex();
+    node.fingerprint = publicKeyObject.node.fingerprint;
+    node.publicKey = publicKeyObject.node.public_key.toHex();
+
+    // This is for the case where the device has been reinitialized
+    if (node.addresses) {
+      node.addresses.length = 0;
+    }
+
+    populateAddresses('[0-1]/[0-19]', node);
+    saveNode(node);
   }
-
-  var match = matches[0];
-
-  match.xpub = publicKeyObject.xpub;
-  match.chainCode = publicKeyObject.node.chain_code.toHex();
-  match.fingerprint = publicKeyObject.node.fingerprint;
-  match.publicKey = publicKeyObject.node.public_key.toHex();
-
-  populateAddresses('[0-1]/[0-19]', match);
-  saveNode(match);
 };
 
 //TODO Move the address functionality to an AddressService
@@ -103,7 +107,7 @@ function updateAddressPools() {
   var walletPools = _.groupBy(maxIndexes, function (max, poolId) {
     return poolId.split('/').slice(0, -1).join('/');
   });
-  var ranges = _.each(walletPools, function (pools, walletId) {
+  _.each(walletPools, function (pools, walletId) {
     _.each(pools, function (pool, poolIndex) {
       var ranges = [
         {start: poolIndex, end: poolIndex},
@@ -183,7 +187,6 @@ function addDeviceIdToNodesWithoutIt() {
         .then(function (features) {
           //TODO Use the public key or something that changes with the key.
           it.deviceId = features.label;
-          console.log('adding device id to wallet:', it);
           saveNode(it);
         });
     }
@@ -232,6 +235,7 @@ var loadValuesFromDatabase = function () {
         return dbPromise
           .then(function (db) {
             if (!features.initialized) {
+              nodesResolved = true;
               reject('Device not initialized');
             } else {
               walletNodes.nodes.length = 0;

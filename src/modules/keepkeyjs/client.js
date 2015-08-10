@@ -28,8 +28,8 @@ var walletNodeService = require('./walletNodeService.js');
 
 var _ = require('lodash');
 
-var KEEPKEY = 'KEEPKEY';
-var TREZOR = 'TREZOR';
+const KEEPKEY = 'KEEPKEY';
+const TREZOR = 'TREZOR';
 var DEVICES = require('./transport.js').DEVICES;
 var logger = require('../../logger.js');
 
@@ -108,7 +108,18 @@ function clientMaker(transport, protoBuf) {
         }
     };
 
-    client.onPublicKey = walletNodeService.registerPublicKey;
+    client.onPublicKey = function(publicKeyObject) {
+        var nodes = walletNodeService.findNodeByPublicKey(publicKeyObject);
+        if (nodes.length !== 1) {
+          const PUBLIC_KEY_MISMATCH_MESSAGE = 'error while matching public key to a node';
+          client.eventEmitter.emit('ProxyMessage', 'ProxyError', {
+                message: PUBLIC_KEY_MISMATCH_MESSAGE
+            });
+            logger.error(PUBLIC_KEY_MISMATCH_MESSAGE);
+            return;
+        }
+        walletNodeService.registerPublicKey(nodes[0], publicKeyObject);
+    };
 
     // Poll for incoming messages
     client.devicePollingInterval = setInterval(function () {

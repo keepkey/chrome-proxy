@@ -1,6 +1,18 @@
+var walletNodeService = require('./../walletNodeService.js');
+var featuresService = require('../featuresService.js');
 var client;
 
 module.exports = function wipeDevice() {
-    client = this;
-    return client.writeToDevice(new client.protoBuf.WipeDevice());
+  client = this;
+
+  var clearNodesOnSuccess = function(type, message) {
+    if (type === "Success") {
+      walletNodeService.clearNodes();
+      client.eventEmitter.off('DeviceMessage', clearNodesOnSuccess);
+      featuresService.clear();
+    }
+  };
+
+  client.eventEmitter.on('DeviceMessage', clearNodesOnSuccess);
+  return client.writeToDevice(new client.protoBuf.WipeDevice());
 };

@@ -18,7 +18,11 @@ describe("client:wipeDevice", function() {
             protoBuf: {
                 WipeDevice: sinon.stub().returns(mockMessageBuffer)
             },
-            writeToDevice: sinon.stub().returns(Promise.resolve({}))
+            writeToDevice: sinon.stub().returns(Promise.resolve({})),
+            eventEmitter: {
+                on: sinon.stub(),
+                off: sinon.stub()
+            }
         };
 
         wipeDeviceObject = require('./wipeDevice.js').bind(mockClient);
@@ -45,4 +49,6 @@ describe("client:wipeDevice", function() {
             });
     });
 
+    it("clears wallet metadata after a successful wipe");
+    it("clears the feature data after a successful wipe");
 });

@@ -28,10 +28,18 @@ describe("client:getPublicKey", function () {
             protoBuf: {
                 GetPublicKey: sinon.stub().returns(mockMessageBuffer)
             },
-            writeToDevice: sinon.stub().returns(Promise.resolve({}))
+            writeToDevice: sinon.stub().returns(Promise.resolve({})),
+            addListener: sinon.stub(),
+            eventEmitter: {
+                off: sinon.stub()
+            }
         };
 
         getPublicKeyObject = require('./getPublicKey.js').bind(mockClient);
+    });
+
+    afterEach(function() {
+       mockClient.addListener.yield('PublicKey');
     });
 
     it('returns a promise', function () {
@@ -104,4 +112,6 @@ describe("client:getPublicKey", function () {
                 assert.calledWith(mockClient.writeToDevice, mockMessageBuffer);
             });
     });
+    it("queues requests and waits for a response");
+    it("resolves the initial promise when the corresponding response is received");
 });
