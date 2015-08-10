@@ -18,6 +18,10 @@ var responseReceived = function responseReceived(type, message) {
       var args = requestQueue.pop();
       getPublicKey.call(client, args);
     }
+  } else if (type === 'Failure') {
+    client.eventEmitter.off('DeviceMessage', responseReceived);
+    requestInProgess = false;
+    requestQueue.length = 0;
   }
 };
 
