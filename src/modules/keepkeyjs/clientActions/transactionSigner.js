@@ -2,6 +2,7 @@ var ByteBuffer = require('bytebuffer');
 var _ = require('lodash');
 
 var featuresService = require('../featuresService.js');
+var feeService = require('../services/feeService.js');
 
 var transactionService = require('../transactionService.js');
 var transactions = transactionService.transactions;
@@ -19,58 +20,50 @@ const TXMETA = 'TXMETA';
 const TXOUTPUT = 'TXOUTPUT';
 const TXFINISHED = 'TXFINISHED';
 
+const NOT_ENOUGH_BITCOINS_ERROR_MESSAGE = 'You do not have enough bitcoins';
+
 var transactionSigner = {};
 var newTransaction;
 
 function createTransaction(request) {
-  var newTransaction = {
-    inputs: [],
-    outputs: []
-  };
-
-  var fee = 10000;
-  var minimumRequiredInputAmount = request.amount + fee;
-
-  var selectedInputAmountTotal = 0;
-
   var sourceWallet = _.find(walletNodeService.nodes, {id: parseInt(request.sourceIndex)});
 
-  function isFromSourceWallet(transaction) {
-    return transaction.nodePath.indexOf(sourceWallet.hdNode) === 0;
-  }
+  var fee, change;
+  return feeService.getPromise()
+    .then(function () {
+      return feeService.estimateFee(sourceWallet.hdNode, request.amount, request.feeLevel);
+    })
+    .then(function (calculatedFee) {
+      newTransaction = {
+        inputs: [],
+        outputs: []
+      };
 
-  function inputSelector(selectedInputs, candidateTransaction) {
-    if (selectedInputAmountTotal < minimumRequiredInputAmount &&
-      candidateTransaction.amount > 0 && !candidateTransaction.spent &&
-      isFromSourceWallet(candidateTransaction)) {
-      selectedInputs.push(candidateTransaction);
-      selectedInputAmountTotal += candidateTransaction.amount;
-    }
-    return selectedInputs;
-  }
+      fee = calculatedFee;
+      newTransaction.inputs = transactionService.selectedTransactions;
+      var inputTotal = _.reduce(transactionService.selectedTransactions, function (total, transaction) {
+        return total + transaction.amount;
+      });
 
-  newTransaction.inputs = _.reduce(transactionService.transactions, inputSelector, []);
+      newTransaction.outputs.push({
+        address: request.address,
+        amount: request.amount
+      });
 
+      change = inputTotal - request.amount - fee;
+      if (change < 0) {
+        throw NOT_ENOUGH_BITCOINS_ERROR_MESSAGE;
+      } else if (change > 0) {
+        newTransaction.outputs.push({
+          address_n: sourceWallet.nodePath.concat(
+            walletNodeService.firstUnusedAddressNode(sourceWallet.addresses[1])
+          ),
+          amount: change
+        });
+      }
 
-  if (selectedInputAmountTotal < minimumRequiredInputAmount) {
-    throw 'You do not have enough bitcoins';
-  }
-
-  newTransaction.outputs.push({
-    address: request.address,
-    amount: request.amount
-  });
-
-  if ((selectedInputAmountTotal - minimumRequiredInputAmount) > 0) {
-    newTransaction.outputs.push({
-      address_n: sourceWallet.nodePath.concat(
-        walletNodeService.firstUnusedAddressNode(sourceWallet.addresses[1])
-      ),
-      amount: selectedInputAmountTotal - minimumRequiredInputAmount
+      return newTransaction;
     });
-  }
-
-  return newTransaction;
 }
 
 var serializedTransaction;
@@ -83,11 +76,12 @@ transactionSigner.requestTransactionSignature = function requestTransactionSigna
 
   return featuresService.getPromise()
     .then(function (features) {
-      var message;
-      newTransaction = createTransaction(request);
-
-      message = new client.protoBuf.SignTx(
+      return createTransaction(request);
+    })
+    .then(function () {
+      var message = new client.protoBuf.SignTx(
         newTransaction.outputs.length, newTransaction.inputs.length, 'Bitcoin');
+
       return client.writeToDevice(message);
     });
 };
