@@ -1,6 +1,6 @@
 {
   "name": "keepkey-proxy",
-  "version": "0.0.25",
+  "version": "0.0.26",
   "description": "A communication bridge between the KeepKey Wallet and a KeepKey device",
   "main": "index.js",
   "scripts": {
