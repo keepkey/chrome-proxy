@@ -32,7 +32,7 @@ var _ = require('lodash');
 var dispatcher = require('./messageDispatcher');
 var walletNodeService = require('./modules/keepkeyjs/walletNodeService.js');
 var transactionService = require('./modules/keepkeyjs/transactionService.js');
-
+var feeService = require('./modules/keepkeyjs/services/feeService.js');
 var logger = require('./logger.js');
 logger.levels(0, 'info');
 
@@ -50,8 +50,8 @@ dispatcher.when('reset', function (client, request) {
   return client.resetDevice(request);
 });
 
-dispatcher.when('Features', function(client) {
-    return walletNodeService.reloadData();
+dispatcher.when('Features', function (client) {
+  return walletNodeService.reloadData();
 });
 
 dispatcher.when('PinMatrixAck', function (client, request) {
@@ -116,6 +116,29 @@ dispatcher.when('RequestTransactionSignature', function (client, request) {
   return client.requestTransactionSignature(request)
     .catch(function (message) {
       return sendMessageToUI('Failure', {message: message});
+    });
+});
+
+dispatcher.when('GetFees', function () {
+  return feeService.getPromise().then(
+    function sendFees(fees) {
+      return sendMessageToUI('Fees', fees);
+    }
+  );
+});
+
+dispatcher.when('EstimateFeeForTransaction', function(client, request) {
+  return feeService.estimateFee(
+    request.walletNode, request.transactionAmount, request.feeLevel)
+    .then(function(fee) {
+      sendMessageToUI('EstimatedTransactionFee', { 'fee': fee });
+    });
+});
+
+dispatcher.when('GetMaximumTransactionAmount', function(client, request) {
+  return feeService.getMaximumTransactionAmount(request.walletNode, request.feeLevel)
+    .then(function(amount) {
+      sendMessageToUI('MaximumTransactionAmount', {max: amount});
     });
 });
 
