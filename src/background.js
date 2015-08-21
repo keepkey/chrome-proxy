@@ -128,15 +128,15 @@ dispatcher.when('GetFees', function () {
 });
 
 dispatcher.when('EstimateFeeForTransaction', function(client, request) {
-  return feeService.estimateFee(
-    request.walletNode, request.transactionAmount, request.feeLevel)
+  return feeService.estimateFees(
+    request.walletNode, request.transactionAmount)
     .then(function(fee) {
       sendMessageToUI('EstimatedTransactionFee', { 'fee': fee });
     });
 });
 
 dispatcher.when('GetMaximumTransactionAmount', function(client, request) {
-  return feeService.getMaximumTransactionAmount(request.walletNode, request.feeLevel)
+  return feeService.getMaximumTransactionAmount(request.walletNode, 'slow')
     .then(function(amount) {
       sendMessageToUI('MaximumTransactionAmount', {max: amount});
     });

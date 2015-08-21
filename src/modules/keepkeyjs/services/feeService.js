@@ -69,6 +69,28 @@ function needMoreInputs(amount, inputCount, inputAmount, feeLevel, effectiveDust
   }
 }
 
+function estimateFees(walletNode, amount) {
+  var promiseArray = [];
+
+  return load()
+    .then(function() {
+      if (_.isNull(amount) || _.isUndefined(amount)) {
+        console.log('$$$$$$$:', amount);
+        return Promise.resolve({});
+      }
+
+      var feeLevels = _.keys(fees);
+      _.each(feeLevels, function(feeLevel) {
+        promiseArray.push(estimateFee(walletNode, amount, feeLevel));
+      });
+
+      return Promise.all(promiseArray)
+        .then(function(fees) {
+          return _.zipObject(feeLevels, fees);
+        });
+    });
+}
+
 function estimateFee(walletNode, amount, feeLevel) {
   if (amount === 0) {
     return Promise.resolve(0);
@@ -95,7 +117,7 @@ function estimateFee(walletNode, amount, feeLevel) {
         } else {
           // when we run out of inputs, we can continue, but might give dust as a fee
           var feeWithOutChange = computeFee(selectedInputCount, 1, feeLevel);
-          ranOutOfInputs = selectedInputTotal < amount + feeWithOutChange;
+          ranOutOfInputs = selectedInputTotal < (amount + feeWithOutChange);
 
           break;
         }
@@ -135,6 +157,7 @@ function getMaximumTransactionAmount(walletNode, feeLevel) {
 module.exports = {
   getPromise: load,
   estimateFee: estimateFee,
+  estimateFees: estimateFees,
   getMaximumTransactionAmount: getMaximumTransactionAmount
 };
 
