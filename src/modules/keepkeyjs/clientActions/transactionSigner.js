@@ -43,14 +43,14 @@ function createTransaction(request) {
       newTransaction.inputs = transactionService.selectedTransactions;
       var inputTotal = _.reduce(transactionService.selectedTransactions, function (total, transaction) {
         return total + transaction.amount;
-      });
+      }, 0);
 
       newTransaction.outputs.push({
         address: request.address,
         amount: request.amount
       });
 
-      change = inputTotal.amount - request.amount - fee;
+      change = inputTotal - request.amount - fee;
       if (change < 0) {
         throw NOT_ENOUGH_BITCOINS_ERROR_MESSAGE;
       } else if (change > 0) {
