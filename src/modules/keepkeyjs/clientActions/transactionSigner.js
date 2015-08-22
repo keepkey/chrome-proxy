@@ -50,7 +50,7 @@ function createTransaction(request) {
         amount: request.amount
       });
 
-      change = inputTotal - request.amount - fee;
+      change = inputTotal.amount - request.amount - fee;
       if (change < 0) {
         throw NOT_ENOUGH_BITCOINS_ERROR_MESSAGE;
       } else if (change > 0) {
