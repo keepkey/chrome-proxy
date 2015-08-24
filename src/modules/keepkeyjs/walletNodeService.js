@@ -120,10 +120,12 @@ function updateAddressPools() {
 
       var wallet = _.find(walletNodes.nodes, {hdNode: walletId});
 
-      var oldWallet = JSON.stringify(wallet);
-      scanNodes(bitcore.HDPublicKey(wallet.xpub), '', wallet.addresses, ranges);
-      if (oldWallet !== JSON.stringify(wallet)) {
-        saveNode(wallet);
+      if (wallet) {
+        var oldWallet = JSON.stringify(wallet);
+        scanNodes(bitcore.HDPublicKey(wallet.xpub), '', wallet.addresses, ranges);
+        if (oldWallet !== JSON.stringify(wallet)) {
+          saveNode(wallet);
+        }
       }
     });
   }, []);
