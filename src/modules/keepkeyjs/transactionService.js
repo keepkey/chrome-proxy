@@ -77,16 +77,10 @@ transactions.getOldestUnspentAfter = function (node, previousTransaction) {
     if (b === undefined) {
       return 1;
     }
-    if (a.confirmations > b.confirmations) {
-      return 1;
-    } else if (a.confirmations < b.confirmations) {
-      return -1;
-    } else if (a.transactionHash > b.transactionHash) {
-      return 1;
-    } else if (a.transactionHash < b.transactionHash) {
-      return -1;
+    if (a.confirmations !== b.confirmations) {
+      return b.confirmations - a.confirmations;
     } else {
-      return 0;
+      return a.id - b.id;
     }
   }
 
