@@ -49,14 +49,6 @@ module.exports = function(event, db, tx) {
             nodePath: [2147483692, 2147483648, 2147483648]
         };
         walletNodeObjectStore.add(defaultWallet);
-
-        var testWallet = {
-            hdNode: "m/44'/0'/1'",
-            id: 1,
-            name: "Retirement Savings",
-            nodePath: [2147483692, 2147483648, 2147483649]
-        };
-        walletNodeObjectStore.add(testWallet);
     };
 
 };

@@ -192,7 +192,7 @@ function addDeviceIdToNodesWithoutIt() {
       promise
         .then(function (features) {
           //TODO Use the public key or something that changes with the key.
-          it.deviceId = features.label;
+          it.deviceId = features.device_id;
           saveNode(it);
         });
     }
@@ -215,25 +215,13 @@ var addDefaultWalletNodes = function (db) {
       hdNode: "m/44'/0'/0'",
       name: "My Wallet",
       nodePath: [2147483692, 2147483648, 2147483648],
-      deviceId: features.label
+      deviceId: features.device_id
     };
     var addDefaultWalletRequest = walletNodeObjectStore.add(defaultWallet);
     addDefaultWalletRequest.onsuccess = function(event) {
       defaultWallet.id = event.target.result;
     };
     walletNodes.nodes.push(defaultWallet);
-
-    var testWallet = {
-      hdNode: "m/44'/0'/1'",
-      name: "Retirement Savings",
-      nodePath: [2147483692, 2147483648, 2147483649],
-      deviceId: features.label
-    };
-    var addTestWalletRequest = walletNodeObjectStore.add(testWallet);
-    addTestWalletRequest.onsuccess = function(event) {
-      testWallet.id = event.target.result;
-    };
-    walletNodes.nodes.push(testWallet);
   });
   return promise;
 };
@@ -259,7 +247,7 @@ var loadValuesFromDatabase = function () {
               store.openCursor().onsuccess = function (event) {
                 var cursor = event.target.result;
                 if (cursor) {
-                  if (!cursor.value.deviceId || cursor.value.deviceId === features.label) {
+                  if (!cursor.value.deviceId || cursor.value.deviceId === features.device_id) {
                     walletNodes.nodes.push(cursor.value);
                   }
                   cursor.continue();
