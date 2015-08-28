@@ -47,6 +47,8 @@ transactions.sendTransaction = function (rawtransaction) {
 transactions.reloadTransactions = function requestTransactionsFromBlockchainProvider() {
   var walletAddresses = walletNodeService.getAddressList();
 
+  transactions.transactions.length = 0;
+
   if (walletAddresses.length) {
     var url = [
       'https://api.chain.com/v2/bitcoin/addresses/',
