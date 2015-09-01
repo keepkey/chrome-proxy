@@ -30,8 +30,8 @@ var transportHidModule = require('./modules/keepkeyjs/chrome/chromeTransportHid.
 var config = require('../dist/config.json');
 var _ = require('lodash');
 var dispatcher = require('./messageDispatcher');
-var walletNodeService = require('./modules/keepkeyjs/walletNodeService.js');
-var transactionService = require('./modules/keepkeyjs/transactionService.js');
+var walletNodeService = require('./modules/keepkeyjs/services/walletNodeService.js');
+var transactionService = require('./modules/keepkeyjs/services/transactionService.js');
 var feeService = require('./modules/keepkeyjs/services/feeService.js');
 var logger = require('./logger.js');
 logger.levels(0, 'info');
@@ -95,23 +95,19 @@ dispatcher.when('GetPublicKey', function (client, request) {
 });
 
 dispatcher.when('GetWalletNodes', function (client, request) {
-  walletNodeService.nodesPromise
+  return walletNodeService.nodesPromise
     .then(function (nodes) {
       sendMessageToUI('WalletNodes', nodes);
     });
 });
 
-dispatcher.when('GetTransactions', function (client, request) {
-  if (request.reload) {
-    transactionService.reloadTransactions()
-      .then(function () {
-        sendMessageToUI('Transactions', transactionService.transactions);
-      });
-  }
-  else {
-    sendMessageToUI('Transactions', transactionService.transactions);
-  }
+dispatcher.when('ReloadBalances', function(client, request) {
+  return walletNodeService.reloadBalances()
+    .then(function(nodes) {
+      sendMessageToUI('WalletNodes', nodes);
+    });
 });
+
 dispatcher.when('RequestTransactionSignature', function (client, request) {
   return client.requestTransactionSignature(request)
     .catch(function (message) {
@@ -139,6 +135,13 @@ dispatcher.when('GetMaximumTransactionAmount', function(client, request) {
   return feeService.getMaximumTransactionAmount(request.walletNode, 'slow')
     .then(function(amount) {
       sendMessageToUI('MaximumTransactionAmount', {max: amount});
+    });
+});
+
+dispatcher.when('GetUnusedExternalAddressNode', function(client, request) {
+  return walletNodeService.getUnusedExternalAddressNode()
+    .then(function() {
+      sendMessageToUI('WalletNodes', walletNodeService.nodes);
     });
 });
 
@@ -178,10 +181,6 @@ function sendMessageToUI(type, message) {
 
 walletNodeService.addListener('changed', function () {
   sendMessageToUI('WalletNodes', walletNodeService.nodes);
-});
-
-transactionService.addListener('changed', function () {
-  sendMessageToUI('Transactions', transactionService.transactions);
 });
 
 module.exports = {

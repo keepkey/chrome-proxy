@@ -4,11 +4,11 @@ var _ = require('lodash');
 var featuresService = require('../featuresService.js');
 var feeService = require('../services/feeService.js');
 
-var transactionService = require('../transactionService.js');
+var transactionService = require('../services/transactionService.js');
 var transactions = transactionService.transactions;
 
-var walletNodeService = require('../walletNodeService.js');
-var NodePathHelper = require('../NodePathHelper.js');
+var walletNodeService = require('../services/walletNodeService.js');
+var nodePathHelper = require('../nodePathHelper.js');
 
 var client;
 
@@ -26,23 +26,26 @@ var transactionSigner = {};
 var newTransaction;
 
 function createTransaction(request) {
-  var sourceWallet = _.find(walletNodeService.nodes, {id: parseInt(request.sourceIndex)});
-
+  var sourceWallet = walletNodeService.findNodeById(request.sourceIndex);
   var fee, change;
+  newTransaction = {
+    walletNodeN: sourceWallet.hdNode,
+    inputs: [],
+    outputs: []
+  };
+
   return feeService.getPromise()
     .then(function () {
       return feeService.estimateFee(sourceWallet.hdNode, request.amount, request.feeLevel);
     })
     .then(function (calculatedFee) {
-      newTransaction = {
-        inputs: [],
-        outputs: []
-      };
-
       fee = calculatedFee;
-      newTransaction.inputs = transactionService.selectedTransactions;
+      return transactionService.getSelectedTransactions();
+    })
+    .then(function (transactions) {
+      newTransaction.inputs = transactions;
       var inputTotal = _.reduce(transactionService.selectedTransactions, function (total, transaction) {
-        return total + transaction.amount;
+        return total + transaction.value;
       }, 0);
 
       newTransaction.outputs.push({
@@ -52,16 +55,18 @@ function createTransaction(request) {
 
       change = inputTotal - request.amount - fee;
       if (change < 0) {
-        throw NOT_ENOUGH_BITCOINS_ERROR_MESSAGE;
+        return Promise.reject(NOT_ENOUGH_BITCOINS_ERROR_MESSAGE);
       } else if (change > 0) {
-        newTransaction.outputs.push({
-          address_n: sourceWallet.nodePath.concat(
-            walletNodeService.firstUnusedAddressNode(sourceWallet.addresses[1])
-          ),
-          amount: change
-        });
+        return walletNodeService.getUnusedChangeAddressNode()
+          .then(function (changeAddressNode) {
+            newTransaction.outputs.push({
+              address_n: nodePathHelper.joinPaths(sourceWallet.hdNode, changeAddressNode.path),
+              amount: change
+            });
+          });
       }
-
+    })
+    .then(function() {
       return newTransaction;
     });
 }
@@ -103,14 +108,19 @@ function convertScriptSigToBuffer(scriptSig) {
 
 function transactionInputToPb(requestedInput) {
   return txInputTypeFactory(_.defaults({
-    address_n: NodePathHelper.toVector(requestedInput.nodePath),
-    prev_hash: requestedInput.output_hash ?
-      ByteBuffer.fromHex(requestedInput.output_hash) :
-      ByteBuffer.fromHex(requestedInput.transactionHash),
+    address_n: nodePathHelper.toVector(
+      nodePathHelper.joinPaths(
+        newTransaction.walletNodeN,
+        requestedInput.hdNode
+      )
+    ),
+    prev_hash: requestedInput.tx_hash ?
+      ByteBuffer.fromHex(requestedInput.tx_hash) :
+      ByteBuffer.fromHex(requestedInput.prev_hash),
     prev_index: typeof(requestedInput.output_index) === 'undefined' ?
-      requestedInput.fragmentIndex : requestedInput.output_index,
-    script_sig: requestedInput.script_signature_hex ?
-      ByteBuffer.fromHex(requestedInput.script_signature_hex) : null,
+      requestedInput.tx_output_n : requestedInput.output_index,
+    script_sig: requestedInput.script ?
+      ByteBuffer.fromHex(requestedInput.script) : null,
     sequence: requestedInput.sequence ? requestedInput.sequence : null
   }, defaultTxInputType));
 }
@@ -139,7 +149,7 @@ var defaultTxBinOutputType = {
 function transactionOutputToBinPb(requestedOutput) {
   return txBinOutputTypeFactory(_.defaults({
     amount: requestedOutput.value,
-    script_pubkey: ByteBuffer.fromHex(requestedOutput.script_hex)
+    script_pubkey: ByteBuffer.fromHex(requestedOutput.script)
   }, defaultTxBinOutputType));
 }
 
@@ -162,7 +172,7 @@ var defaultTxOutputType = {
 function transactionOutputToPb(requestedOutput) {
   return txOutputTypeFactory(_.defaults({
     address: requestedOutput.address,
-    address_n: requestedOutput.address_n,
+    address_n: nodePathHelper.toVector(requestedOutput.address_n),
     amount: requestedOutput.amount,
     script_type: requestedOutput.script_type
   }, defaultTxOutputType));
@@ -209,7 +219,7 @@ transactionSigner.transactionRequestHandler = function transactionRequestHandler
   }
 
   var transaction = (request.details && request.details.tx_hash) ?
-    transactionService.getByTransactionHash(request.details.tx_hash.toHex()) :
+    _.find(newTransaction.inputs, {tx_hash: request.details.tx_hash.toHex()}) :
     newTransaction;
 
   if (request.serialized && request.serialized.serialized_tx) {

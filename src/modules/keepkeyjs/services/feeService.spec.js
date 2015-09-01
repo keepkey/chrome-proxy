@@ -35,7 +35,7 @@ describe('fee service', function() {
         get: mockGet
           .returns(Promise.resolve(mockBlockcypherMainResponse))
       },
-      '../transactionService.js': {
+      './transactionService.js': {
         getOldestUnspentAfter: mockGetOldestUnspentAfter
       }
     });
