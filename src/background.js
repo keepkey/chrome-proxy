@@ -142,6 +142,10 @@ dispatcher.when('GetMaximumTransactionAmount', function(client, request) {
     });
 });
 
+dispatcher.when('ChangePin', function (client) {
+  return client.changePin();
+});
+
 dispatcher.otherwise(function (request, response, sendResponse) {
   sendResponse({
     messageType: "Error",
