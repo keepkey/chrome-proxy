@@ -1,7 +1,17 @@
-var client;
+var _ = require('lodash');
 
-module.exports = function changePin() {
+var client;
+var defaultOptions = {
+    remove: false
+};
+
+module.exports = function changePin(args) {
   client = this;
 
-  return client.writeToDevice(new client.protoBuf.ChangePin());
+  var options = _.extend({}, defaultOptions, args);
+  var message = new client.protoBuf.ChangePin(
+      options.remove
+  );
+
+  return client.writeToDevice(message);
 };
