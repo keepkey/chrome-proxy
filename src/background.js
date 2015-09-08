@@ -142,8 +142,12 @@ dispatcher.when('GetMaximumTransactionAmount', function(client, request) {
     });
 });
 
-dispatcher.when('ChangePin', function (client) {
-  return client.changePin();
+dispatcher.when('ChangePin', function (client, request) {
+  return client.changePin(request);
+});
+
+dispatcher.when('ApplySettings', function (client, request) {
+  return client.applySettings(request);
 });
 
 dispatcher.otherwise(function (request, response, sendResponse) {
