@@ -1,0 +1,19 @@
+{
+  "confidenceThreshholds": {
+    "highConfidence": 0.98,
+    "acceptableDelta": 0.001
+  },
+  "defaultAccounts": [{
+    "hdNode": "m/44'/0'/0'",
+    "nodePath": [2147483692, 2147483648, 2147483648],
+    "wallet": {}
+  }],
+  "cliLogLevel": "warn",
+  "chromeLogLevel": "info",
+  "usbDeviceParameters": {
+    "KEEPKEY": {
+      "vendorId": 11044,
+      "productId": 1
+    }
+  }
+}

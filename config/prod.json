@@ -1,4 +1,6 @@
 {
+  "environment": "prod",
+  "jsonIndent": 0,
   "keepkeyProxy": {
     "applicationId": "idgiipeogajjpkgheijapngmlbohdhjg"
   },

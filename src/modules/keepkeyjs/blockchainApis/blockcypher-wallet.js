@@ -9,6 +9,7 @@ const ADDRESSES_PATH = 'addresses';
 const DERIVE_ADDRESSES_PATH = 'addresses/derive';
 const ADDRESS_API_PATH = 'addrs';
 const WALLET_BALANCE_PATH = 'balance';
+const FULL_TRANSACTIONS = 'full';
 const TX_PATH = 'txs';
 const API_TOKEN_PARAMETER = urlParameter('token', API_KEY);
 
@@ -37,20 +38,28 @@ function getWalletUrl(name) {
   ].join('?');
 }
 
-function getUnspentTransactionSummariesUrl(name, before) {
+function getTransactionsUrl(name, before, getHistory) {
   //https://api.blockcypher.com/v1/btc/main/addrs/{{name}}?token={{api-token}}&limit=200&unspentOnly=true
   var parameters = [
     API_TOKEN_PARAMETER,
-    urlParameter('unspentOnly', 'true'),
     urlParameter('omitWalletAddresses', true)
   ];
+
+  var path = [API_ROOT, ADDRESS_API_PATH, name];
 
   if (before) {
     parameters.push(urlParameter('before', before));
   }
 
+  if (!getHistory) {
+    parameters.push(urlParameter('unspentOnly', 'true'));
+  } else {
+    path.push(FULL_TRANSACTIONS);
+    parameters.push(urlParameter('limit', '50'));
+  }
+
   return [
-    [API_ROOT, ADDRESS_API_PATH, name].join('/'),
+    path.join('/'),
     parameters.join('&')
   ].join('?');
 }
@@ -149,41 +158,116 @@ function getWallet(name, xpub) {
   return promise;
 }
 
-function getUnspentTransactionSummaries(name) {
+var getHistoryDecorator = {
+  getTransactionsUrl: _.curryRight(getTransactionsUrl)(true),
+  getTransactionCollections: function (wallet) {
+    return [wallet.txs];
+  },
+  getTransactionLocator: function (transaction) {
+    return {
+      hash: transaction.hash
+    };
+  }
+};
+
+var getSummaryDecorator = {
+  getTransactionsUrl: _.curryRight(getTransactionsUrl)(false),
+  getTransactionCollections: function (wallet) {
+    return [wallet.txrefs, wallet.unconfirmed_txrefs];
+  },
+  getTransactionLocator: function (transaction) {
+    return {
+      tx_hash: transaction.tx_hash,
+      tx_input_n: transaction.tx_input_n,
+      tx_output_n: transaction.tx_output_n
+    };
+  }
+};
+
+
+function getTransactions(name, decorator) {
+  function selectResumeHeightFromList(uniqList) {
+    // returns the second lowest to handle blocks with multiple transactions
+    if (uniqList.length > 1) {
+      return uniqList[1];
+    } else {
+      return uniqList[0];
+    }
+  }
 
   function getResumeHeight() {
     var allTransactions = _.flatten(arguments);
     var blockHeights = _.pluck(allTransactions, 'block_height');
+    _.remove(blockHeights, function (item) {
+      return item === -1;
+    });
     blockHeights.sort();
-    var uniqBlockHeights = _.uniq(blockHeights, true);
 
-    // returns the second lowest to handle blocks with multiple transactions
-    if (uniqBlockHeights.length > 1) {
-      return uniqBlockHeights[1];
-    } else {
-      return uniqBlockHeights[0];
-    }
+    return selectResumeHeightFromList(_.uniq(blockHeights, true));
   }
 
-  function isTransactionInList(list, transaction) {
-    return !!_.find(list, {
-      tx_hash: transaction.tx_hash,
-      tx_input_n: transaction.tx_input_n,
-      tx_output_n: transaction.tx_output_n
-    });
+  function getTransactionFromList(list, transaction) {
+    return _.find(list, decorator.getTransactionLocator(transaction));
+  }
+
+  function isTransactionComplete(transaction) {
+    return transaction.vin_sz > transaction.inputs.length ||
+      transaction.vout_sz > transaction.outputs.length;
+  }
+
+  function getPartialTransactionUrl(hash, inputStartIndex, outputStartIndex) {
+    return [
+      [API_ROOT, TX_PATH, hash].join('/'),
+      [
+        API_TOKEN_PARAMETER,
+        urlParameter('limit', '500'),
+        urlParameter('instart', inputStartIndex),
+        urlParameter('outstart', outputStartIndex)
+      ].join('&')
+    ].join('?');
+  }
+
+  function downloadLargeTransaction(transaction) {
+    var startInputIndex = transaction.inputs.length;
+    var startOutputIndex = transaction.outputs.length;
+    return httpClient.get(getPartialTransactionUrl(transaction.hash, startInputIndex, startOutputIndex))
+      .then(function (data) {
+        Array.prototype.push.apply(transaction.inputs, data.inputs);
+        Array.prototype.push.apply(transaction.outputs, data.outputs);
+        if (isTransactionComplete(transaction)) {
+          return downloadLargeTransaction(transaction);
+        }
+      });
   }
 
   function mergeNewTransactions(master, additions) {
-    _.each(additions, function(transaction) {
-      console.log(isTransactionInList(master, transaction));
-      if (!isTransactionInList(master, transaction)) {
+    var promise = Promise.resolve();
+    _.each(additions, function (transaction) {
+      if (transaction.inputs.length === 1 && transaction.inputs[0].output_index === -1) {
+        transaction.inputs[0].addresses = ['<new>'];
+      }
+      if (!getTransactionFromList(master, transaction)) {
         master.push(transaction);
       }
+
+      if (isTransactionComplete(transaction)) {
+        promise = promise.then(function () {
+          return downloadLargeTransaction(transaction);
+        });
+      }
+      promise = promise.then(function () {
+        console.assert(transaction.vin_sz === transaction.inputs.length, 'vin_sz should match the number of inputs');
+        console.assert(transaction.vout_sz === transaction.outputs.length, 'vout_sz should match the number of outputs');
+      });
     });
+    return promise;
   }
 
-  function getMoreUnspentTransactionSummaries(resolve, wallet, before) {
-    return httpClient.get(getUnspentTransactionSummariesUrl(name, before))
+  function getMoreTransactions(resolve, wallet, before) {
+    if (!wallet) {
+      wallet = {};
+    }
+    return httpClient.get(decorator.getTransactionsUrl(name, before))
       .then(function (data) {
         if (!data.txrefs) {
           data.txrefs = [];
@@ -191,28 +275,41 @@ function getUnspentTransactionSummaries(name) {
         if (!data.unconfirmed_txrefs) {
           data.unconfirmed_txrefs = [];
         }
-        if (!wallet) {
-          wallet = _.extend({}, data);
-        } else {
-          mergeNewTransactions(wallet.txrefs, data.txrefs);
-          mergeNewTransactions(wallet.unconfirmed_txrefs, data.unconfirmed_txrefs);
+        if (!data.txs) {
+          data.txs = [];
         }
+        return data;
+      })
+      .then(function (data) {
+        if (!wallet.txrefs && !wallet.unconfirmed_txrefs && !wallet.txs) {
+          _.extend(wallet, data);
+          return data;
+        } else {
+          return mergeNewTransactions(wallet.txrefs, data.txrefs)
+            .then(function () {
+              return mergeNewTransactions(wallet.unconfirmed_txrefs, data.unconfirmed_txrefs);
+            })
+            .then(function () {
+              return mergeNewTransactions(wallet.txs, data.txs);
+            })
+            .then(function () {
+              return data;
+            });
+        }
+      })
+      .then(function (data) {
         if (data.hasMore) {
-          var resumeHeight = getResumeHeight(wallet.txrefs, wallet.unconfirmed_txrefs);
-          return getMoreUnspentTransactionSummaries(resolve, wallet, resumeHeight);
+          var resumeHeight = getResumeHeight.apply(this, decorator.getTransactionCollections(wallet));
+          return getMoreTransactions(resolve, wallet, resumeHeight);
         } else {
           resolve(wallet);
         }
       });
   }
 
-  function processTransactionData(data) {
-    return translateToLocalFormat(data);
-  }
-
-  function getFirstUnspentTransactionSummaries() {
+  function getFirstTransactionSummaries() {
     return new Promise(function (resolve, reject) {
-      getMoreUnspentTransactionSummaries(resolve)
+      getMoreTransactions(resolve)
         .catch(function (status) {
           if (status === 404) {
             return reject(status);
@@ -222,8 +319,8 @@ function getUnspentTransactionSummaries(name) {
   }
 
   if (name) {
-    return getFirstUnspentTransactionSummaries()
-      .then(processTransactionData);
+    return getFirstTransactionSummaries()
+      .then(translateToLocalFormat);
   }
   else {
     return Promise.reject('wallet name required');
@@ -326,7 +423,10 @@ function getTransactionUrl(hash) {
   //https://api.blockcypher.com/v1/btc/main/txs/{{transaction-hash}}?token={{api-token}}
   return [
     [API_ROOT, TX_PATH, hash].join('/'),
-    API_TOKEN_PARAMETER
+    [
+      API_TOKEN_PARAMETER,
+      urlParameter('limit', '500')
+    ].join('&')
   ].join('?');
 
 }
@@ -355,11 +455,17 @@ function sendRawTransaction(rawTransaction) {
   );
 }
 
+function getWebsiteTransactionUrl(hash) {
+  return 'https://live.blockcypher.com/btc/tx/' + hash + '/';
+}
+
 module.exports = {
   sendTransactionUrl: sendTransactionUrl,
   getWallet: getWallet,
   getUnusedAddressNode: getUnusedAddressNode,
-  getUnspentTransactionSummaries: getUnspentTransactionSummaries,
+  getUnspentTransactionSummaries: _.curryRight(getTransactions)(getSummaryDecorator),
+  getTransactionHistory: _.curryRight(getTransactions)(getHistoryDecorator),
   getTransaction: getTransaction,
+  getTransactionUrl: getWebsiteTransactionUrl,
   sendRawTransaction: sendRawTransaction
 };

@@ -239,8 +239,8 @@ transactionSigner.transactionRequestHandler = function transactionRequestHandler
     return client.writeToDevice(transactionTypeFactory(options));
   }
   else if (request.request_type === TXMETA) {
-    options.version = 1;
-    options.lock_time = 0;
+    options.version = transaction.tx.ver;
+    options.lock_time = transaction.tx.lock_time;
     options.inputs_cnt = transaction.inputs.length;
     options.outputs_cnt = transaction.outputs.length;
     return client.writeToDevice(transactionTypeFactory(options));

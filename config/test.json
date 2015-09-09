@@ -1,4 +1,6 @@
 {
+  "environment": "test",
+  "jsonIndent": 0,
   "keepkeyProxy": {
     "applicationId": "gcnmkijgadcpohmhonkpoocdclcamakj"
   },

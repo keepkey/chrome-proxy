@@ -1,4 +1,6 @@
 var bunyan = require('bunyan');
+var config = require('../dist/config.json');
+var isNode = typeof window === "undefined";
 
 function FormattedConsoleLog() {}
 FormattedConsoleLog.prototype.write = function (rec) {
@@ -18,6 +20,16 @@ var logger = bunyan.createLogger({
         type: 'raw'
     }]
 });
+
+if (isNode) {
+    if (config.cliLogLevel) {
+        logger.levels(0, config.cliLogLevel);
+    }
+} else {
+    if (config.chromeLogLevel) {
+        logger.levels(0, config.chromeLogLevel);
+    }
+}
 
 module.exports = logger;
 

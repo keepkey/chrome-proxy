@@ -33,7 +33,6 @@ var dispatcher = require('./messageDispatcher');
 var walletNodeService = require('./modules/keepkeyjs/services/walletNodeService.js');
 var feeService = require('./modules/keepkeyjs/services/feeService.js');
 var logger = require('./logger.js');
-logger.levels(0, 'info');
 
 var keepKeyWalletId = config.keepkeyWallet.applicationId;
 var clientEE = new EventEmitter2();
@@ -145,6 +144,10 @@ dispatcher.when('GetUnusedExternalAddressNode', function(client, request) {
     .then(function() {
       sendMessageToUI('WalletNodes', walletNodeService.nodes);
     });
+});
+
+dispatcher.when('GetTransactionHistory', function(client, request) {
+  return walletNodeService.getTransactionHistory(request.walletId);
 });
 
 dispatcher.when('ChangePin', function (client, request) {

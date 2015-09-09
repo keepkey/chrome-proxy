@@ -1,6 +1,6 @@
 var _ = require('lodash');
-var EventEmitter2 = require('eventemitter2').EventEmitter2;
 var walletNodeService = require('./walletNodeService.js');
+var config = require('../../../../dist/config.json');
 
 var blockcypher = require('../blockchainApis/blockcypher-wallet.js');
 
@@ -22,7 +22,7 @@ function getHighConfidenceTransactions(node) {
   );
 
   return _.filter(combinedTxRefs, function (input) {
-    return input && (_.isUndefined(input.confidence) || input.confidence >= walletNodeService.HIGH_CONFIDENCE_LEVEL);
+    return input && (_.isUndefined(input.confidence) || input.confidence >= config.confidenceThreshholds.highConfidence);
   });
 }
 
@@ -82,7 +82,7 @@ function getSelectedTransactions() {
         return loadTransactionDetails(transaction.tx_hash);
       })
       .then(function (tx) {
-        //transaction.tx = tx;
+        transaction.tx = tx;
         transaction.inputs = tx.inputs;
         transaction.outputs = tx.outputs;
       });
