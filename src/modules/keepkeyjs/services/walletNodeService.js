@@ -20,9 +20,6 @@ var walletServicePromise = featuresService.getPromise()
       })
         .then(function (data) {
           _.merge(node.wallet, data);
-          return loadBalance(node);
-        })
-        .then(function (node) {
           return node;
         });
       // TODO Handle errors from blockcypher

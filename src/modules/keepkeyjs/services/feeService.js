@@ -145,7 +145,9 @@ function getMaximumTransactionAmount(walletNode, feeLevel) {
   return walletNodeService.nodesPromise
     .then(function (nodes) {
       var node = _.find(nodes, {hdNode: walletNode});
-      var inputs = node.txrefs;
+      var inputs = _.compact([].concat(
+        node.txrefs, node.unconfirmed_txrefs
+      ));
       var inputTotal = node.final_balance;
 
       var fee = computeFee(inputs.length, 1, feeLevel);
