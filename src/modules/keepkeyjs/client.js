@@ -76,6 +76,8 @@ function clientMaker(transport, protoBuf) {
     client.getAddress = require('./clientActions/getAddress.js').bind(client);
     client.getPublicKey = require('./clientActions/getPublicKey.js').bind(client);
     client.endSession = require('./clientActions/endSession.js').bind(client);
+    client.changePin = require('./clientActions/changePin.js').bind(client);
+    client.applySettings = require('./clientActions/applySettings.js').bind(client);
 
     var transactionSigner = require('./clientActions/transactionSigner.js');
     client.requestTransactionSignature = transactionSigner
