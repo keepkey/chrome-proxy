@@ -1,4 +1,5 @@
-var transactionService = require('../transactionService.js');
+var transactionService = require('./transactionService.js');
+var walletNodeService = require('./walletNodeService.js');
 var httpClient = require('../HttpClient.js');
 var _ = require('lodash');
 
@@ -73,19 +74,18 @@ function estimateFees(walletNode, amount) {
   var promiseArray = [];
 
   return load()
-    .then(function() {
+    .then(function () {
       if (_.isNull(amount) || _.isUndefined(amount)) {
-        console.log('$$$$$$$:', amount);
         return Promise.resolve({});
       }
 
       var feeLevels = _.keys(fees);
-      _.each(feeLevels, function(feeLevel) {
+      _.each(feeLevels, function (feeLevel) {
         promiseArray.push(estimateFee(walletNode, amount, feeLevel));
       });
 
       return Promise.all(promiseArray)
-        .then(function(fees) {
+        .then(function (fees) {
           return _.zipObject(feeLevels, fees);
         });
     });
@@ -95,7 +95,7 @@ function estimateFee(walletNode, amount, feeLevel) {
   if (amount === 0) {
     return Promise.resolve(0);
   } else {
-    return new Promise(function(resolve) {
+    return new Promise(function (resolve) {
       var selectedInputCount = 0;
       var selectedInputTotal = 0;
       var input;
@@ -111,9 +111,9 @@ function estimateFee(walletNode, amount, feeLevel) {
       while (needMoreInputs(amount, selectedInputCount, selectedInputTotal, feeLevel, effectiveDust)) {
         input = transactionService.getOldestUnspentAfter(walletNode, input);
         if (input) {
-          transactionService.select(input.id);
+          transactionService.select(input);
           selectedInputCount++;
-          selectedInputTotal += input.amount;
+          selectedInputTotal += input.value;
         } else {
           // when we run out of inputs, we can continue, but might give dust as a fee
           var feeWithOutChange = computeFee(selectedInputCount, 1, feeLevel);
@@ -142,16 +142,18 @@ function estimateFee(walletNode, amount, feeLevel) {
 }
 
 function getMaximumTransactionAmount(walletNode, feeLevel) {
-  return new Promise(function(resolve) {
-    var inputs = transactionService.getTransactionsByNode(walletNode);
-    var inputTotal = _.reduce(inputs, function(total, transaction) {
-      return total + transaction.amount;
-    }, 0);
+  return walletNodeService.nodesPromise
+    .then(function (nodes) {
+      var node = _.find(nodes, {hdNode: walletNode});
+      var inputs = _.compact([].concat(
+        node.txrefs, node.unconfirmed_txrefs
+      ));
+      var inputTotal = node.final_balance;
 
-    var fee = computeFee(inputs.length, 1, feeLevel);
+      var fee = computeFee(inputs.length, 1, feeLevel);
 
-    resolve(inputTotal - fee);
-  });
+      return inputTotal - fee;
+    });
 }
 
 module.exports = {

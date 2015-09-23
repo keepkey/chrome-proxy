@@ -4,40 +4,52 @@ var _ = require('lodash');
 const PRIME_DERIVATION_FLAG = 0x80000000;
 
 function convertPrime(n) {
-    var i = 0, max = n.length;
+  var i = 0, max = n.length;
 
-    for (; i < max; i += 1) {
-        if (n[i] < 0) {
-            n[i] = uint32.or(Math.abs(n[i]), PRIME_DERIVATION_FLAG);
-        }
+  for (; i < max; i += 1) {
+    if (n[i] < 0) {
+      n[i] = uint32.or(Math.abs(n[i]), PRIME_DERIVATION_FLAG);
     }
+  }
 
-    return n;
+  return n;
 }
 
 function readNodePath(addressN) {
-    if (!addressN) { return null; }
-    if (typeof addressN === "string") {
-        addressN = addressN.toUpperCase().split('/');
+  if (!addressN) {
+    return null;
+  }
+  if (typeof addressN === "string") {
+    addressN = addressN.toUpperCase().split('/');
 
-        if (addressN[0] === 'M') {
-            addressN = addressN.slice(1);
-        }
-        addressN = _.transform(addressN, function (result, it) {
-            if (it.substring(it.length - 1) === "'") {
-                it = '-' + it.substring(0, it.length - 1);
-            }
-
-            if (it === '-0') {
-                result.push(PRIME_DERIVATION_FLAG);
-            } else {
-                result.push(parseInt(it, 10));
-            }
-        }, []);
+    if (addressN[0] === 'M') {
+      addressN = addressN.slice(1);
     }
-    return convertPrime(addressN);
+    addressN = _.transform(addressN, function (result, it) {
+      if (it.substring(it.length - 1) === "'") {
+        it = '-' + it.substring(0, it.length - 1);
+      }
+
+      if (it === '-0') {
+        result.push(PRIME_DERIVATION_FLAG);
+      } else {
+        result.push(parseInt(it, 10));
+      }
+    }, []);
+  }
+  return convertPrime(addressN);
+}
+
+function joinPaths() {
+  if (_.indexOf(arguments, undefined) !== -1) {
+    return undefined;
+  }
+  return 'm/' + _.map(arguments, function (path) {
+      return _.trim(path, 'm/');
+    }).join('/');
 }
 
 module.exports = {
-    toVector: readNodePath
+  toVector: readNodePath,
+  joinPaths: joinPaths
 };

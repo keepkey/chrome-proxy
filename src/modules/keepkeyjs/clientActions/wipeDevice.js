@@ -1,4 +1,4 @@
-var walletNodeService = require('./../walletNodeService.js');
+var walletNodeService = require('../services/walletNodeService.js');
 var featuresService = require('../featuresService.js');
 var client;
 
