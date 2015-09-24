@@ -10,28 +10,37 @@ var nodes = [{
   wallet: {}
 }];
 
-var walletServicePromise = featuresService.getPromise()
-  .then(function (features) {
-    var promise = Promise.resolve();
-    _.each(nodes, function (node) {
-      node.deviceId = features.device_id;
-      promise = promise.then(function () {
-        return blockcypher.getWallet(node.deviceId);
-      })
-        .then(function (data) {
-          _.merge(node.wallet, data);
-          return node;
+var walletServicePromise = getWalletServicePromise();
+
+function getWalletServicePromise() {
+  if (!walletServicePromise) {
+    walletServicePromise = featuresService.getPromise()
+      .then(function (features) {
+        var promise = Promise.resolve();
+        _.each(nodes, function (node) {
+          node.deviceId = features.device_id;
+          promise = promise
+            .then(function () {
+              return blockcypher.getWallet(node.deviceId);
+            })
+            .then(function (data) {
+              _.merge(node.wallet, data);
+              return node;
+            });
         });
-      // TODO Handle errors from blockcypher
-      //.catch(function(error) {
-      //  alert('unexpected error calling blockchypher API:', error);
-      //});
-    });
-    return promise
-      .then(function () {
-        return nodes;
+        return promise
+          .then(function () {
+            return nodes;
+          })
+          .catch(function() {
+            walletServicePromise = undefined;
+            return nodes;
+          });
+
       });
-  });
+  }
+  return walletServicePromise;
+}
 
 function reloadBalances() {
   var promise = walletServicePromise;
@@ -67,7 +76,7 @@ function getHdNodeForAddress(node, address) {
 
 function loadUnspentTransactionSummaries(nodeId) {
   var node;
-  return walletServicePromise
+  return getWalletServicePromise()
     .then(function (nodes) {
       node = nodes[0]; //_.find(nodes, { id: nodeId });
       return blockcypher.getUnspentTransactionSummaries(node.deviceId);
@@ -93,7 +102,7 @@ function loadUnspentTransactionSummaries(nodeId) {
 }
 
 function registerPublicKey(publicKeyObject) {
-  return walletServicePromise
+  return getWalletServicePromise()
     .then(function (nodes) {
       var node = nodes[0];
       if (node.wallet.xpub !== publicKeyObject.xpub) {
@@ -125,13 +134,13 @@ var getUnusedAddressNodeFactory = function (index) {
   return function getUnusedAddressNode() {
     var node = nodes[0];
 
-    return blockcypher.getUnusedAddressNode(node, index);
+    return blockcypher.getUnusedAddressNode(node.wallet, index);
   };
 };
 
 module.exports = {
   nodes: nodes,
-  nodesPromise: walletServicePromise,
+  getNodesPromise: getWalletServicePromise,
   getUnusedExternalAddressNode: getUnusedAddressNodeFactory(0),
   getUnusedChangeAddressNode: getUnusedAddressNodeFactory(1),
   clear: clear,

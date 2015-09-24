@@ -101,6 +101,18 @@ function createWallet(name, xpub) {
     promise = httpClient.post(url, JSON.stringify(payload))
       .then(function (createdWallet) {
         return translateToLocalFormat(createdWallet);
+      })
+      .catch(function(status) {
+        // This code compensates for a bug in the BlockCypher API
+        if (status === 409) {
+          return getWallet(name)
+            .then(function(wallet) {
+              return addNewAddressToChain(wallet, 1);
+            })
+            .then(function(address) {
+              return getWallet(name);
+            });
+        }
       });
   } else {
     promise = Promise.reject('name and xpub must be specified');
@@ -230,31 +242,31 @@ function setFirstUnused(wallet, chainIndex, addressNode) {
   chain.firstUnused = addressNode;
 }
 
-function getUnusedAddressNode(node, chainIndex) {
-  return httpClient.get(unusedAddressesUrl(node.deviceId))
+function getUnusedAddressNode(wallet, chainIndex) {
+  return httpClient.get(unusedAddressesUrl(wallet.name))
     .then(function (newData) {
-      updateWallet(node.wallet, newData);
+      updateWallet(wallet, newData);
       var chain = _.find(newData.chains, {index: chainIndex});
       if (chain && chain.chain_addresses && chain.chain_addresses.length) {
         var firstUnused = chain.chain_addresses[0];
-        setFirstUnused(node.wallet, chainIndex, firstUnused);
+        setFirstUnused(wallet, chainIndex, firstUnused);
         return firstUnused;
       } else {
-        return addNewAddressToChain(node, chainIndex);
+        return addNewAddressToChain(wallet, chainIndex);
       }
     });
 }
 
-function addNewAddressToChain(node, chainIndex) {
+function addNewAddressToChain(wallet, chainIndex) {
   return httpClient.post(
-    deriveAddressesUrl(node.deviceId),
+    deriveAddressesUrl(wallet.name),
     JSON.stringify(deriveAddressesPayload(chainIndex))
   )
     .then(function (data) {
-      updateWallet(node.wallet, data);
+      updateWallet(wallet, data);
       var newAddressChain = _.find(data.chains, {index: chainIndex});
       var firstUnused = newAddressChain.chain_addresses[0];
-      setFirstUnused(node.wallet, chainIndex, firstUnused);
+      setFirstUnused(wallet, chainIndex, firstUnused);
       return firstUnused;
     });
 }

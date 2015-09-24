@@ -95,7 +95,7 @@ dispatcher.when('GetPublicKey', function (client, request) {
 });
 
 dispatcher.when('GetWalletNodes', function (client, request) {
-  return walletNodeService.nodesPromise
+  return walletNodeService.getNodesPromise()
     .then(function (nodes) {
       sendMessageToUI('WalletNodes', nodes);
     });
