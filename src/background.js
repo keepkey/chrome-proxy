@@ -31,7 +31,6 @@ var config = require('../dist/config.json');
 var _ = require('lodash');
 var dispatcher = require('./messageDispatcher');
 var walletNodeService = require('./modules/keepkeyjs/services/walletNodeService.js');
-var transactionService = require('./modules/keepkeyjs/services/transactionService.js');
 var feeService = require('./modules/keepkeyjs/services/feeService.js');
 var logger = require('./logger.js');
 logger.levels(0, 'info');
@@ -98,6 +97,9 @@ dispatcher.when('GetWalletNodes', function (client, request) {
   return walletNodeService.getNodesPromise()
     .then(function (nodes) {
       sendMessageToUI('WalletNodes', nodes);
+    })
+    .catch(function() {
+      sendMessageToUI('WalletNodes', walletNodeService.nodes);
     });
 });
 
@@ -226,6 +228,7 @@ chrome.hid.onDeviceRemoved.addListener(function (deviceId) {
 
   clientModule.remove(device);
   transportModule.remove(deviceId);
+  walletNodeService.clear();
 
   clientEE.emit('clientDisconnected');
 

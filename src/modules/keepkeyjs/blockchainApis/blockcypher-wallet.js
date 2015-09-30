@@ -37,15 +37,21 @@ function getWalletUrl(name) {
   ].join('?');
 }
 
-function getUnspentTransactionSummariesUrl(name) {
+function getUnspentTransactionSummariesUrl(name, before) {
   //https://api.blockcypher.com/v1/btc/main/addrs/{{name}}?token={{api-token}}&limit=200&unspentOnly=true
+  var parameters = [
+    API_TOKEN_PARAMETER,
+    urlParameter('unspentOnly', 'true'),
+    urlParameter('omitWalletAddresses', true)
+  ];
+
+  if (before) {
+    parameters.push(urlParameter('before', before));
+  }
+
   return [
     [API_ROOT, ADDRESS_API_PATH, name].join('/'),
-    [
-      API_TOKEN_PARAMETER,
-      urlParameter('unspentOnly', 'true'),
-      urlParameter('limit', 200)
-    ].join('&')
+    parameters.join('&')
   ].join('?');
 }
 
@@ -102,14 +108,14 @@ function createWallet(name, xpub) {
       .then(function (createdWallet) {
         return translateToLocalFormat(createdWallet);
       })
-      .catch(function(status) {
+      .catch(function (status) {
         // This code compensates for a bug in the BlockCypher API
         if (status === 409) {
           return getWallet(name)
-            .then(function(wallet) {
+            .then(function (wallet) {
               return addNewAddressToChain(wallet, 1);
             })
-            .then(function(address) {
+            .then(function (address) {
               return getWallet(name);
             });
         }
@@ -156,39 +162,84 @@ function getWallet(name, xpub) {
 }
 
 function getUnspentTransactionSummaries(name) {
-  var promise;
-  if (name) {
-    var url = getUnspentTransactionSummariesUrl(name);
-    promise = httpClient.get(url)
-      .then(function (data) {
-        delete data.total_received;
-        delete data.total_sent;
-        data.balance = _.reduce(data.txrefs, function(total, transaction) {
-          if (!transaction.spent) {
-            total += transaction.value;
-          }
-          return total;
-        }, 0);
-        data.unconfirmed_balance = _.reduce(data.unconfirmed_txrefs, function(total, transaction) {
-          if (!transaction.spent) {
-            total += transaction.value;
-          }
-          return total;
-        }, 0);
-        data.final_balance = data.balance + data.unconfirmed_balance;
 
-        return translateToLocalFormat(data);
-      })
-      .catch(function (status) {
-        if (status === 404) {
-          return Promise.reject(status);
-        }
-      });
-  } else {
-    promise = Promise.reject('wallet name required');
+  function getResumeHeight() {
+    var allTransactions = _.flatten(arguments);
+    var blockHeights = _.pluck(allTransactions, 'block_height');
+    blockHeights.sort();
+    var uniqBlockHeights = _.uniq(blockHeights, true);
+
+    // returns the second lowest to handle blocks with multiple transactions
+    if (uniqBlockHeights.length > 1) {
+      return uniqBlockHeights[1];
+    } else {
+      return uniqBlockHeights[0];
+    }
   }
 
-  return promise;
+  function isTransactionInList(list, transaction) {
+    return !!_.find(list, {
+      tx_hash: transaction.tx_hash,
+      tx_input_n: transaction.tx_input_n,
+      tx_output_n: transaction.tx_output_n
+    });
+  }
+
+  function mergeNewTransactions(master, additions) {
+    _.each(additions, function(transaction) {
+      console.log(isTransactionInList(master, transaction));
+      if (!isTransactionInList(master, transaction)) {
+        master.push(transaction);
+      }
+    });
+  }
+
+  function getMoreUnspentTransactionSummaries(resolve, wallet, before) {
+    return httpClient.get(getUnspentTransactionSummariesUrl(name, before))
+      .then(function (data) {
+        if (!data.txrefs) {
+          data.txrefs = [];
+        }
+        if (!data.unconfirmed_txrefs) {
+          data.unconfirmed_txrefs = [];
+        }
+        if (!wallet) {
+          wallet = _.extend({}, data);
+        } else {
+          mergeNewTransactions(wallet.txrefs, data.txrefs);
+          mergeNewTransactions(wallet.unconfirmed_txrefs, data.unconfirmed_txrefs);
+        }
+        if (data.hasMore) {
+          var resumeHeight = getResumeHeight(wallet.txrefs, wallet.unconfirmed_txrefs);
+          return getMoreUnspentTransactionSummaries(resolve, wallet, resumeHeight);
+        } else {
+          resolve(wallet);
+        }
+      });
+  }
+
+  function processTransactionData(data) {
+    return translateToLocalFormat(data);
+  }
+
+  function getFirstUnspentTransactionSummaries() {
+    return new Promise(function (resolve, reject) {
+      getMoreUnspentTransactionSummaries(resolve)
+        .catch(function (status) {
+          if (status === 404) {
+            return reject(status);
+          }
+        });
+    });
+  }
+
+  if (name) {
+    return getFirstUnspentTransactionSummaries()
+      .then(processTransactionData);
+  }
+  else {
+    return Promise.reject('wallet name required');
+  }
 }
 
 function updateWallet(node, data) {

@@ -3,61 +3,72 @@ var EventEmitter2 = require('eventemitter2').EventEmitter2;
 var featuresService = require('../featuresService.js');
 var blockcypher = require('../blockchainApis/blockcypher-wallet.js');
 
-var eventEmitter = new EventEmitter2();
-var nodes = [{
+const DEFAULT_NODES = [{
   hdNode: "m/44'/0'/0'",
   nodePath: [2147483692, 2147483648, 2147483648],
   wallet: {}
 }];
 
+var eventEmitter = new EventEmitter2();
+var nodes = _.cloneDeep(DEFAULT_NODES);
+
 var walletServicePromise = getWalletServicePromise();
 
 function getWalletServicePromise() {
   if (!walletServicePromise) {
-    walletServicePromise = featuresService.getPromise()
-      .then(function (features) {
-        var promise = Promise.resolve();
-        _.each(nodes, function (node) {
-          node.deviceId = features.device_id;
-          promise = promise
-            .then(function () {
-              return blockcypher.getWallet(node.deviceId);
-            })
-            .then(function (data) {
-              _.merge(node.wallet, data);
-              return node;
-            });
-        });
-        return promise
-          .then(function () {
-            return nodes;
-          })
-          .catch(function() {
-            walletServicePromise = undefined;
-            return nodes;
-          });
+    walletServicePromise = new Promise(function (resolve, reject) {
 
-      });
+      featuresService.getPromise()
+        .then(function (features) {
+          if (!features.device_id || !features.initialized) {
+            walletServicePromise = undefined;
+            reject('device not initialized');
+          } else {
+            var promises = [];
+            _.each(nodes, function (node) {
+              node.deviceId = features.device_id;
+              promises.push(
+                blockcypher.getWallet(node.deviceId)
+                  .then(function (data) {
+                    _.merge(node.wallet, data);
+                    return node;
+                  })
+              );
+            });
+            return Promise.all(promises)
+              .then(function () {
+                resolve(nodes);
+              })
+              .catch(function (status) {
+                walletServicePromise = undefined;
+                resolve(nodes);
+              });
+          }
+        });
+    });
   }
   return walletServicePromise;
 }
 
 function reloadBalances() {
-  var promise = walletServicePromise;
-  _.each(nodes, function (node) {
-    promise = promise
-      .then(function () {
-        return loadUnspentTransactionSummaries(node.deviceId);
-      })
-      .then(function (data) {
-        _.merge(node, data);
-        return node;
-      });
-  });
-  return promise
+  return getWalletServicePromise()
     .then(function () {
-      eventEmitter.emit('changed', nodes);
-      return nodes;
+      var promise = Promise.resolve();
+      _.each(nodes, function (node) {
+        promise = promise
+          .then(function () {
+            return loadUnspentTransactionSummaries(node.deviceId);
+          })
+          .then(function (data) {
+            _.merge(node, data);
+            return node;
+          });
+      });
+      return promise
+        .then(function () {
+          eventEmitter.emit('changed', nodes);
+          return nodes;
+        });
     });
 }
 
@@ -76,6 +87,7 @@ function getHdNodeForAddress(node, address) {
 
 function loadUnspentTransactionSummaries(nodeId) {
   var node;
+  var originalNodes = _.clone(nodes, true);
   return getWalletServicePromise()
     .then(function (nodes) {
       node = nodes[0]; //_.find(nodes, { id: nodeId });
@@ -96,8 +108,13 @@ function loadUnspentTransactionSummaries(nodeId) {
 
       _.merge(node, data);
 
-      //eventEmitter.emit('changed', nodes);
-      return nodes;
+      if (!_.isEqual(nodes, originalNodes)) {
+        eventEmitter.emit('changed', nodes);
+      }
+      return node;
+    })
+    .catch(function() {
+      return node;
     });
 }
 
@@ -119,11 +136,16 @@ function registerPublicKey(publicKeyObject) {
       } else {
         return nodes;
       }
+    })
+    .catch(function() {
+      console.error('error registering a public key');
     });
 }
 
 function clear() {
   nodes.length = 0;
+  Array.prototype.push.apply(nodes, _.cloneDeep(DEFAULT_NODES));
+  walletServicePromise = undefined;
 }
 
 function findNodeById(id) {
@@ -144,11 +166,9 @@ module.exports = {
   getUnusedExternalAddressNode: getUnusedAddressNodeFactory(0),
   getUnusedChangeAddressNode: getUnusedAddressNodeFactory(1),
   clear: clear,
-  //reloadData: reloadData,
   findNodeById: findNodeById,
   registerPublicKey: registerPublicKey,
   addListener: eventEmitter.addListener.bind(eventEmitter),
-  //updateNodes: updateNodes
   loadUnspentTransactionSummaries: loadUnspentTransactionSummaries,
   reloadBalances: reloadBalances
 };
