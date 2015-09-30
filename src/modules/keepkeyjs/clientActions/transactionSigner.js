@@ -252,6 +252,9 @@ transactionSigner.transactionRequestHandler = function transactionRequestHandler
         transactionOutputToBinPb(requestedOutput)
       ];
     } else {
+      if (requestedOutput.address && requestedOutput.address.startsWith('3')) {
+        requestedOutput.script_type = PAYTOSCRIPTHASH;
+      }
       options.outputs = [
         transactionOutputToPb(requestedOutput)
       ];
