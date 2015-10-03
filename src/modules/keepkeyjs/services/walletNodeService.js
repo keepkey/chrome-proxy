@@ -26,7 +26,7 @@ function getWalletServicePromise() {
           } else {
             var promises = [];
             _.each(nodes, function (node) {
-              node.deviceId = features.device_id;
+              node.deviceId = 'X' + features.device_id.substring(0, 23);
               promises.push(
                 blockcypher.getWallet(node.deviceId)
                   .then(function (data) {

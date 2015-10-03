@@ -1,20 +1,27 @@
+var _ = require('lodash');
+
 var promiseResolver;
 var promise = new Promise(function (resolve) {
   promiseResolver = resolve;
 });
 var resolved = false;
+var data = {};
 
 var setValue = function (value) {
+  _.extend(data, value);
+
   if (!resolved) {
     resolved = true;
-    promiseResolver(value);
-  } else {
-    promise = Promise.resolve(value);
+    promiseResolver(data);
   }
 };
 
 var clear = function () {
-  setValue({});
+  for (var prop in data) {
+    if (data.hasOwnProperty(prop)) {
+      delete data[prop];
+    }
+  }
 };
 
 var getPromise = function () {
