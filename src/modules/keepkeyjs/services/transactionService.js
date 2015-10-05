@@ -1,11 +1,9 @@
 var _ = require('lodash');
-var dbPromise = require('../dbPromise.js');
 var EventEmitter2 = require('eventemitter2').EventEmitter2;
 var walletNodeService = require('./walletNodeService.js');
 
 var blockcypher = require('../blockchainApis/blockcypher-wallet.js');
 
-var eventEmitter = new EventEmitter2();
 var selectedTransactions = [];
 
 var transactionsLoadedPromise = walletNodeService.loadUnspentTransactionSummaries();
@@ -16,6 +14,16 @@ function getByTransactionHash(hash) {
     .then(function () {
       return loadTransactionDetails(hash);
     });
+}
+
+function getHighConfidenceTransactions(node) {
+  var combinedTxRefs = [].concat(
+    node.txrefs, node.unconfirmed_txrefs
+  );
+
+  return _.filter(combinedTxRefs, function (input) {
+    return input && (_.isUndefined(input.confidence) || input.confidence >= walletNodeService.HIGH_CONFIDENCE_LEVEL);
+  });
 }
 
 function sendTransaction(rawtransaction) {
@@ -51,10 +59,7 @@ function getOldestUnspentAfter(node, previousTransaction) {
       compareTransactions(candidateTransaction, previousTransaction) > 0;
   }
 
-  var transactionsCopy = _.compact([].concat(
-    walletNodeService.nodes[0].txrefs,
-    walletNodeService.nodes[0].unconfirmed_txrefs
-  ));
+  var transactionsCopy = getHighConfidenceTransactions(walletNodeService.nodes[0]);
   transactionsCopy.sort(compareTransactions);
 
   return _.find(transactionsCopy, inputSelector);
@@ -88,14 +93,6 @@ function getSelectedTransactions() {
     });
 }
 
-//TODO is this needed?
-dbPromise
-  .then(function () {
-    walletNodeService.addListener('changed', function () {
-      reloadTransactions();
-    });
-  });
-
 var loadTransactionDetails = blockcypher.getTransaction;
 
 module.exports = {
@@ -106,5 +103,6 @@ module.exports = {
   reloadTransactions: reloadTransactions,
   sendTransaction: sendTransaction,
   getByTransactionHash: getByTransactionHash,
-  getSelectedTransactions: getSelectedTransactions
+  getSelectedTransactions: getSelectedTransactions,
+  getHighConfidenceTransactions: getHighConfidenceTransactions
 };

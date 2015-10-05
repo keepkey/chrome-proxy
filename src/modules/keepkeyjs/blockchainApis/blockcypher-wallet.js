@@ -107,18 +107,6 @@ function createWallet(name, xpub) {
     promise = httpClient.post(url, JSON.stringify(payload))
       .then(function (createdWallet) {
         return translateToLocalFormat(createdWallet);
-      })
-      .catch(function (status) {
-        // This code compensates for a bug in the BlockCypher API
-        if (status === 409) {
-          return getWallet(name)
-            .then(function (wallet) {
-              return addNewAddressToChain(wallet, 1);
-            })
-            .then(function (address) {
-              return getWallet(name);
-            });
-        }
       });
   } else {
     promise = Promise.reject('name and xpub must be specified');
