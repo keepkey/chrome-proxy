@@ -108,7 +108,12 @@ function loadUnspentTransactionSummaries(nodeId) {
 
       _.merge(node, data);
 
-      if (!_.isEqual(nodes, originalNodes)) {
+      if (!_.isEqual(nodes, originalNodes, function(value, other, index) {
+          if (index === 'confidence') {
+            var delta = Math.abs(value - other);
+            return delta < 0.001;
+          }
+        })) {
         eventEmitter.emit('changed', nodes);
       }
       return node;
