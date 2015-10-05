@@ -8,6 +8,8 @@ const DEFAULT_NODES = [{
   nodePath: [2147483692, 2147483648, 2147483648],
   wallet: {}
 }];
+const HIGH_CONFIDENCE_LEVEL = 0.98;
+const ACCEPTABLE_CONFIDENCE_DELTA = 0.001;
 
 var eventEmitter = new EventEmitter2();
 var nodes = _.cloneDeep(DEFAULT_NODES);
@@ -94,15 +96,26 @@ function loadUnspentTransactionSummaries(nodeId) {
       return blockcypher.getUnspentTransactionSummaries(node.deviceId);
     })
     .then(function (data) {
+      data.highConfidenceBalance = 0;
+      data.lowConfidenceBalance = 0;
+
       _.each(data.txrefs, function (it) {
         if (!it.hdNode) {
           it.hdNode = getHdNodeForAddress(node, it.address);
+        }
+        if (!it.spent) {
+          data.highConfidenceBalance += it.value;
         }
       });
 
       _.each(data.unconfirmed_txrefs, function (it) {
         if (!it.hdNode) {
           it.hdNode = getHdNodeForAddress(node, it.address);
+        }
+        if (it.value > 0 && it.confidence >= HIGH_CONFIDENCE_LEVEL) {
+          data.highConfidenceBalance += it.value;
+        } else {
+          data.lowConfidenceBalance += it.value;
         }
       });
 
@@ -111,7 +124,7 @@ function loadUnspentTransactionSummaries(nodeId) {
       if (!_.isEqual(nodes, originalNodes, function(value, other, index) {
           if (index === 'confidence') {
             var delta = Math.abs(value - other);
-            return delta < 0.001;
+            return delta < ACCEPTABLE_CONFIDENCE_DELTA;
           }
         })) {
         eventEmitter.emit('changed', nodes);
@@ -175,5 +188,6 @@ module.exports = {
   registerPublicKey: registerPublicKey,
   addListener: eventEmitter.addListener.bind(eventEmitter),
   loadUnspentTransactionSummaries: loadUnspentTransactionSummaries,
-  reloadBalances: reloadBalances
+  reloadBalances: reloadBalances,
+  HIGH_CONFIDENCE_LEVEL: HIGH_CONFIDENCE_LEVEL
 };
