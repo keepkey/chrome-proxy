@@ -28,8 +28,7 @@ module.exports.MSG_HEADER_START = '##';
 module.exports.MSG_HEADER_LENGTH = jspack.CalcLength('>HL');
 
 module.exports.DEVICES = {
-    KEEPKEY: {vendorId: 11044, productId: 1},
-    TREZOR: {vendorId: 21324, productId: 1}
+    KEEPKEY: {vendorId: 11044, productId: 1}
 };
 
 var transports = {},

@@ -53,6 +53,7 @@ function getWalletServicePromise() {
 }
 
 function reloadBalances() {
+  walletServicePromise = undefined;
   return getWalletServicePromise()
     .then(function () {
       var promise = Promise.resolve();
@@ -119,6 +120,10 @@ function loadUnspentTransactionSummaries(nodeId) {
         }
       });
 
+      if (node && node.wallet && node.wallet.chains && node.wallet.chains.length) {
+        delete node.wallet.chains[0].firstUnused;
+      }
+
       _.merge(node, data);
 
       if (!_.isEqual(nodes, originalNodes, function(value, other, index) {
@@ -131,6 +136,7 @@ function loadUnspentTransactionSummaries(nodeId) {
       }
       return node;
     })
+    .then(getUnusedAddressNodeFactory(0))
     .catch(function() {
       return node;
     });

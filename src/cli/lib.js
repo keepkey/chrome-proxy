@@ -4,8 +4,7 @@ var transportHid = require('./../modules/keepkeyjs/node/nodeTransportHid.js');
 var clientModule = require('./../modules/keepkeyjs/client.js');
 var logger = require('./../logger.js');
 const DEVICES = {
-    KEEPKEY: {vendorId: 11044, productId: 1},
-    TREZOR: {vendorId: 21324, productId: 1}
+    KEEPKEY: {vendorId: 11044, productId: 1}
 };
 
 var client;
