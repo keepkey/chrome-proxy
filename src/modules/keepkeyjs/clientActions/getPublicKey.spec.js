@@ -39,10 +39,6 @@ describe("client:getPublicKey", function () {
     getPublicKeyObject = require('./getPublicKey.js').bind(mockClient);
   });
 
-  afterEach(function () {
-    mockClient.addListener.yield('PublicKey');
-  });
-
   it('returns a promise', function () {
     assert.instanceOf(getPublicKeyObject({}), Promise);
   });
