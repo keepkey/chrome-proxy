@@ -83,7 +83,7 @@ describe('fee service', function() {
         (MAX_INPUT_SIZE + OUTPUT_SIZE + TRANSACTION_OVERHEAD_SIZE) / 1000;
 
       mockGetOldestUnspentAfter
-        .onCall(0).returns({amount: transactionAmount + minimumFee - 1})
+        .onCall(0).returns({value: transactionAmount + minimumFee - 1})
         .onCall(1).returns(undefined);
 
       return feeService.estimateFee({}, transactionAmount, 'fast')
@@ -98,7 +98,7 @@ describe('fee service', function() {
         (MAX_INPUT_SIZE + OUTPUT_SIZE + TRANSACTION_OVERHEAD_SIZE) / 1000;
 
       mockGetOldestUnspentAfter
-        .onCall(0).returns({amount: transactionAmount + minimumFee})
+        .onCall(0).returns({value: transactionAmount + minimumFee})
         .onCall(1).returns(undefined);
 
       return feeService.estimateFee({}, transactionAmount, 'fast')
@@ -113,7 +113,7 @@ describe('fee service', function() {
         (MAX_INPUT_SIZE + OUTPUT_SIZE + TRANSACTION_OVERHEAD_SIZE) / 1000;
 
       mockGetOldestUnspentAfter
-        .onCall(0).returns({amount: transactionAmount + minimumFee + 1})
+        .onCall(0).returns({value: transactionAmount + minimumFee + 1})
         .onCall(1).returns(undefined);
 
       return feeService.estimateFee({}, transactionAmount, 'fast')
@@ -129,7 +129,7 @@ describe('fee service', function() {
       var feeDifferential = expectedFees.fast * OUTPUT_SIZE / 1000;
 
       mockGetOldestUnspentAfter
-        .onCall(0).returns({amount: transactionAmount + minimumFee + feeDifferential})
+        .onCall(0).returns({value: transactionAmount + minimumFee + feeDifferential})
         .onCall(1).returns(undefined);
 
       return feeService.estimateFee({}, transactionAmount, 'fast')
@@ -144,7 +144,7 @@ describe('fee service', function() {
         (MAX_INPUT_SIZE + 2 * OUTPUT_SIZE + TRANSACTION_OVERHEAD_SIZE) / 1000;
 
       mockGetOldestUnspentAfter
-        .onCall(0).returns({amount: transactionAmount + minimumFee + DUST - 1})
+        .onCall(0).returns({value: transactionAmount + minimumFee + DUST - 1})
         .onCall(1).returns(undefined);
 
       return feeService.estimateFee({}, transactionAmount, 'fast')
@@ -159,7 +159,7 @@ describe('fee service', function() {
         (MAX_INPUT_SIZE + 2 * OUTPUT_SIZE + TRANSACTION_OVERHEAD_SIZE) / 1000;
 
       mockGetOldestUnspentAfter
-        .onCall(0).returns({amount: transactionAmount + minimumFee + DUST})
+        .onCall(0).returns({value: transactionAmount + minimumFee + DUST})
         .onCall(1).returns(undefined);
 
       return feeService.estimateFee({}, transactionAmount, 'fast')
@@ -175,8 +175,8 @@ describe('fee service', function() {
       var differential = expectedFees.fast * (MAX_INPUT_SIZE + OUTPUT_SIZE) / 1000;
 
       mockGetOldestUnspentAfter
-        .onCall(0).returns({amount: transactionAmount + minimumFee - 1})
-        .onCall(1).returns({amount: transactionAmount})
+        .onCall(0).returns({value: transactionAmount + minimumFee - 1})
+        .onCall(1).returns({value: transactionAmount})
         .onCall(2).returns(undefined);
 
       return feeService.estimateFee({}, transactionAmount, 'fast')
@@ -193,8 +193,8 @@ describe('fee service', function() {
       var changeDifferential = expectedFees.fast * (OUTPUT_SIZE) / 1000;
 
       mockGetOldestUnspentAfter
-        .onCall(0).returns({amount: transactionAmount + minimumFee - 1})
-        .onCall(1).returns({amount: differential + changeDifferential + DUST})
+        .onCall(0).returns({value: transactionAmount + minimumFee - 1})
+        .onCall(1).returns({value: differential + changeDifferential + DUST})
         .onCall(2).returns(undefined);
 
       return feeService.estimateFee({}, transactionAmount, 'fast')
