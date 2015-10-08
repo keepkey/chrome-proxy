@@ -9,6 +9,7 @@ const ADDRESSES_PATH = 'addresses';
 const DERIVE_ADDRESSES_PATH = 'addresses/derive';
 const ADDRESS_API_PATH = 'addrs';
 const WALLET_BALANCE_PATH = 'balance';
+const FULL_TRANSACTIONS = 'full';
 const TX_PATH = 'txs';
 const API_TOKEN_PARAMETER = urlParameter('token', API_KEY);
 
@@ -37,20 +38,27 @@ function getWalletUrl(name) {
   ].join('?');
 }
 
-function getUnspentTransactionSummariesUrl(name, before) {
+function getTransactionsUrl(name, getHistory, before) {
   //https://api.blockcypher.com/v1/btc/main/addrs/{{name}}?token={{api-token}}&limit=200&unspentOnly=true
   var parameters = [
     API_TOKEN_PARAMETER,
-    urlParameter('unspentOnly', 'true'),
     urlParameter('omitWalletAddresses', true)
   ];
+
+  var path = [API_ROOT, ADDRESS_API_PATH, name];
 
   if (before) {
     parameters.push(urlParameter('before', before));
   }
 
+  if (!getHistory) {
+    parameters.push(urlParameter('unspentOnly', 'true'));
+  } else {
+    path.push(FULL_TRANSACTIONS);
+  }
+
   return [
-    [API_ROOT, ADDRESS_API_PATH, name].join('/'),
+    path.join('/'),
     parameters.join('&')
   ].join('?');
 }
@@ -149,18 +157,22 @@ function getWallet(name, xpub) {
   return promise;
 }
 
-function getUnspentTransactionSummaries(name) {
+function getTransactions(name, getHistory) {
 
   function getResumeHeight() {
     var allTransactions = _.flatten(arguments);
     var blockHeights = _.pluck(allTransactions, 'block_height');
+    _.remove(blockHeights, function (item) {
+      return item === -1;
+    });
     blockHeights.sort();
     var uniqBlockHeights = _.uniq(blockHeights, true);
 
     // returns the second lowest to handle blocks with multiple transactions
-    if (uniqBlockHeights.length > 1) {
+    if (uniqBlockHeights.length > 1 && !getHistory) {
       return uniqBlockHeights[1];
     } else {
+      console.log('before:', uniqBlockHeights[0]);
       return uniqBlockHeights[0];
     }
   }
@@ -174,16 +186,18 @@ function getUnspentTransactionSummaries(name) {
   }
 
   function mergeNewTransactions(master, additions) {
-    _.each(additions, function(transaction) {
-      console.log(isTransactionInList(master, transaction));
+    _.each(additions, function (transaction) {
       if (!isTransactionInList(master, transaction)) {
         master.push(transaction);
       }
     });
   }
 
-  function getMoreUnspentTransactionSummaries(resolve, wallet, before) {
-    return httpClient.get(getUnspentTransactionSummariesUrl(name, before))
+  function getMoreTransactions(resolve, wallet, before) {
+    if (!wallet) {
+      wallet = {};
+    }
+    return httpClient.get(getTransactionsUrl(name, getHistory, before))
       .then(function (data) {
         if (!data.txrefs) {
           data.txrefs = [];
@@ -191,28 +205,31 @@ function getUnspentTransactionSummaries(name) {
         if (!data.unconfirmed_txrefs) {
           data.unconfirmed_txrefs = [];
         }
-        if (!wallet) {
-          wallet = _.extend({}, data);
+        if (!data.txs) {
+          data.txs = [];
+        }
+
+        if (!wallet.txrefs && !wallet.unconfirmed_txrefs && !wallet.txs) {
+          _.extend(wallet, data);
         } else {
           mergeNewTransactions(wallet.txrefs, data.txrefs);
           mergeNewTransactions(wallet.unconfirmed_txrefs, data.unconfirmed_txrefs);
+          mergeNewTransactions(wallet.txs, data.txs);
         }
         if (data.hasMore) {
-          var resumeHeight = getResumeHeight(wallet.txrefs, wallet.unconfirmed_txrefs);
-          return getMoreUnspentTransactionSummaries(resolve, wallet, resumeHeight);
+          var resumeHeight = getHistory ?
+            getResumeHeight(wallet.txs) :
+            getResumeHeight(wallet.txrefs, wallet.unconfirmed_txrefs);
+          return getMoreTransactions(resolve, wallet, resumeHeight);
         } else {
           resolve(wallet);
         }
       });
   }
 
-  function processTransactionData(data) {
-    return translateToLocalFormat(data);
-  }
-
-  function getFirstUnspentTransactionSummaries() {
+  function getFirstTransactionSummaries() {
     return new Promise(function (resolve, reject) {
-      getMoreUnspentTransactionSummaries(resolve)
+      getMoreTransactions(resolve)
         .catch(function (status) {
           if (status === 404) {
             return reject(status);
@@ -222,8 +239,8 @@ function getUnspentTransactionSummaries(name) {
   }
 
   if (name) {
-    return getFirstUnspentTransactionSummaries()
-      .then(processTransactionData);
+    return getFirstTransactionSummaries()
+      .then(translateToLocalFormat);
   }
   else {
     return Promise.reject('wallet name required');
@@ -359,7 +376,8 @@ module.exports = {
   sendTransactionUrl: sendTransactionUrl,
   getWallet: getWallet,
   getUnusedAddressNode: getUnusedAddressNode,
-  getUnspentTransactionSummaries: getUnspentTransactionSummaries,
+  getUnspentTransactionSummaries: _.curryRight(getTransactions)(false),
+  getTransactionHistory: _.curryRight(getTransactions)(true),
   getTransaction: getTransaction,
   sendRawTransaction: sendRawTransaction
 };
