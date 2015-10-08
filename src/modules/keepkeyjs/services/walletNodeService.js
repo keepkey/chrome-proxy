@@ -89,11 +89,19 @@ function getHdNodeForAddress(node, address) {
   return path;
 }
 
+function changeDetectedInNodes(originalNodes) {
+  return !_.isEqual(nodes, originalNodes, function (value, other, index) {
+    if (index === 'confidence') {
+      var delta = Math.abs(value - other);
+      return delta < ACCEPTABLE_CONFIDENCE_DELTA;
+    }
+  });
+}
 function loadUnspentTransactionSummaries(nodeId) {
   var node;
   var originalNodes = _.clone(nodes, true);
   return getWalletServicePromise()
-    .then(function (nodes) {
+    .then(function () {
       node = nodes[0]; //_.find(nodes, { id: nodeId });
       return blockcypher.getUnspentTransactionSummaries(node.deviceId);
     })
@@ -127,12 +135,7 @@ function loadUnspentTransactionSummaries(nodeId) {
 
       _.merge(node, data);
 
-      if (!_.isEqual(nodes, originalNodes, function(value, other, index) {
-          if (index === 'confidence') {
-            var delta = Math.abs(value - other);
-            return delta < ACCEPTABLE_CONFIDENCE_DELTA;
-          }
-        })) {
+      if (changeDetectedInNodes(originalNodes)) {
         eventEmitter.emit('changed', nodes);
       }
       return node;
@@ -145,7 +148,7 @@ function loadUnspentTransactionSummaries(nodeId) {
 
 function registerPublicKey(publicKeyObject) {
   return getWalletServicePromise()
-    .then(function (nodes) {
+    .then(function () {
       var node = nodes[0];
       if (node.wallet.xpub !== publicKeyObject.xpub) {
         node.wallet.xpub = publicKeyObject.xpub;
@@ -185,6 +188,28 @@ var getUnusedAddressNodeFactory = function (index) {
   };
 };
 
+function getTransactionHistory(walletNode) {
+  var originalNodes;
+  var node;
+  return getWalletServicePromise()
+    .then(function () {
+      originalNodes = _.clone(nodes, true);
+      node = nodes[0]; //_.find(nodes, { id: nodeId });
+      return blockcypher.getTransactionHistory(node.deviceId);
+    })
+    .then(function(data) {
+
+
+
+      _.merge(node, data);
+
+      if (changeDetectedInNodes(originalNodes)) {
+        console.log('changed');
+        eventEmitter.emit('changed', nodes);
+      }
+    });
+}
+
 module.exports = {
   nodes: nodes,
   getNodesPromise: getWalletServicePromise,
@@ -196,5 +221,6 @@ module.exports = {
   addListener: eventEmitter.addListener.bind(eventEmitter),
   loadUnspentTransactionSummaries: loadUnspentTransactionSummaries,
   reloadBalances: reloadBalances,
+  getTransactionHistory: getTransactionHistory,
   HIGH_CONFIDENCE_LEVEL: HIGH_CONFIDENCE_LEVEL
 };
