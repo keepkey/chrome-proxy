@@ -25,6 +25,7 @@ var hydrate = require('./hydrate.js');
 var featuresService = require('./featuresService.js');
 var Long = require('long');
 var walletNodeService = require('./services/walletNodeService.js');
+var config = require('../../../dist/config.json');
 
 var _ = require('lodash');
 
@@ -40,12 +41,14 @@ var clients = {},    // client pool
   clientTypes = {};  // client types used for client creation by type
 
 clientTypes[KEEPKEY] = require('./keepkey/client.js');
-clientTypes[TREZOR] = require('./trezor/client.js');
 
 function buffer2Hex(k, v) {
   if (v && v.buffer) {
     var hexstring = '';
     for (var i = v.offset; i < v.limit; i++) {
+      if (v.view[i] < 16) {
+        hexstring += 0;
+      }
       hexstring += v.view[i].toString(16);
     }
     return hexstring;
@@ -65,7 +68,7 @@ function clientMaker(transport, protoBuf) {
   client.addListener = client.eventEmitter.addListener.bind(client.eventEmitter);
   client.writeToDevice = function (message) {
     //logger.info('proxy --> device: [%s] %j', message.$type.name, message);
-    console.log('proxy --> device: [%s]\n', message.$type.name, JSON.stringify(message, buffer2Hex, 2));
+    console.log('proxy --> device: [%s]\n', message.$type.name, JSON.stringify(message, buffer2Hex, config.jsonIndent));
     return transport.write.apply(transport, arguments);
   };
 
@@ -136,7 +139,7 @@ function clientMaker(transport, protoBuf) {
         .then(function dispatchIncomingMessage(message) {
           deviceInUse = false;
           //logger.info('device --> proxy: [%s] %j', message.$type.name, message);
-          console.log('device --> proxy: [%s]\n', message.$type.name, JSON.stringify(message, buffer2Hex, 2));
+          console.log('device --> proxy: [%s]\n', message.$type.name, JSON.stringify(message, buffer2Hex, config.jsonIndent));
           if (message) {
 
             client.eventEmitter.emit('DeviceMessage', message.$type.name, hydrate(message));

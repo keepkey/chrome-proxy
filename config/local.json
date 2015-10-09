@@ -1,4 +1,6 @@
 {
+  "environment": "local",
+  "jsonIndent": 0,
   "keepkeyProxy": {
     "applicationId": "badomolcmhkafhofmedjoekochbhakia"
   },

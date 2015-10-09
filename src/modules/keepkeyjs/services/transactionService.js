@@ -82,7 +82,7 @@ function getSelectedTransactions() {
         return loadTransactionDetails(transaction.tx_hash);
       })
       .then(function (tx) {
-        //transaction.tx = tx;
+        transaction.tx = tx;
         transaction.inputs = tx.inputs;
         transaction.outputs = tx.outputs;
       });

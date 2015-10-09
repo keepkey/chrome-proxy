@@ -1,4 +1,6 @@
 {
+  "environment": "debug",
+  "jsonIndent": 2,
   "keepkeyProxy": {
     "applicationId": "hnmabaiiicpenmplhedainbdjcomnaed"
   },
