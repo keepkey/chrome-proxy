@@ -85,6 +85,7 @@ function getHdNodeForAddress(node, address) {
     return nodePath;
   }, undefined);
 
+  console.assert(path, 'Unable to find the node path for ' + address + ' in node. API data incorrect?', node);
   return path;
 }
 
