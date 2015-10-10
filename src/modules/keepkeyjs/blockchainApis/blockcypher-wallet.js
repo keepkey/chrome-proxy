@@ -38,7 +38,7 @@ function getWalletUrl(name) {
   ].join('?');
 }
 
-function getTransactionsUrl(name, getHistory, before) {
+function getTransactionsUrl(name, before, getHistory) {
   //https://api.blockcypher.com/v1/btc/main/addrs/{{name}}?token={{api-token}}&limit=200&unspentOnly=true
   var parameters = [
     API_TOKEN_PARAMETER,
@@ -157,7 +157,27 @@ function getWallet(name, xpub) {
   return promise;
 }
 
-function getTransactions(name, getHistory) {
+var getHistoryDecorator = {
+  selectResumeHeightFromList: function(uniqList) {
+    return uniqList[0];
+  },
+  getTransactionsUrl: _.curryRight(getTransactionsUrl)(true)
+};
+
+var getSummaryDecorator = {
+  selectResumeHeightFromList: function(uniqList) {
+    // returns the second lowest to handle blocks with multiple transactions
+    if (uniqList.length > 1) {
+      return uniqList[1];
+    } else {
+      return uniqList[0];
+    }
+  },
+  getTransactionsUrl: _.curryRight(getTransactionsUrl)(false)
+};
+
+
+function getTransactions(name, getHistory, decorator) {
 
   function getResumeHeight() {
     var allTransactions = _.flatten(arguments);
@@ -166,18 +186,11 @@ function getTransactions(name, getHistory) {
       return item === -1;
     });
     blockHeights.sort();
-    var uniqBlockHeights = _.uniq(blockHeights, true);
 
-    // returns the second lowest to handle blocks with multiple transactions
-    if (uniqBlockHeights.length > 1 && !getHistory) {
-      return uniqBlockHeights[1];
-    } else {
-      console.log('before:', uniqBlockHeights[0]);
-      return uniqBlockHeights[0];
-    }
+    return decorator.selectResumeHeightFromList(_.uniq(blockHeights, true));
   }
 
-  function isTransactionInList(list, transaction) {
+  function isTransactionSummaryInList(list, transaction) {
     return !!_.find(list, {
       tx_hash: transaction.tx_hash,
       tx_input_n: transaction.tx_input_n,
@@ -187,7 +200,7 @@ function getTransactions(name, getHistory) {
 
   function mergeNewTransactions(master, additions) {
     _.each(additions, function (transaction) {
-      if (!isTransactionInList(master, transaction)) {
+      if (!isTransactionSummaryInList(master, transaction)) {
         master.push(transaction);
       }
     });
@@ -197,7 +210,7 @@ function getTransactions(name, getHistory) {
     if (!wallet) {
       wallet = {};
     }
-    return httpClient.get(getTransactionsUrl(name, getHistory, before))
+    return httpClient.get(decorator.getTransactionsUrl(name, before))
       .then(function (data) {
         if (!data.txrefs) {
           data.txrefs = [];
@@ -376,8 +389,8 @@ module.exports = {
   sendTransactionUrl: sendTransactionUrl,
   getWallet: getWallet,
   getUnusedAddressNode: getUnusedAddressNode,
-  getUnspentTransactionSummaries: _.curryRight(getTransactions)(false),
-  getTransactionHistory: _.curryRight(getTransactions)(true),
+  getUnspentTransactionSummaries: _.curryRight(getTransactions)(false, getSummaryDecorator),
+  getTransactionHistory: _.curryRight(getTransactions)(true, getHistoryDecorator),
   getTransaction: getTransaction,
   sendRawTransaction: sendRawTransaction
 };
