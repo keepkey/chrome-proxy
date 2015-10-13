@@ -158,26 +158,41 @@ function getWallet(name, xpub) {
 }
 
 var getHistoryDecorator = {
-  selectResumeHeightFromList: function(uniqList) {
-    return uniqList[0];
+  getTransactionsUrl: _.curryRight(getTransactionsUrl)(true),
+  getTransactionCollections: function(wallet) {
+    return [wallet.txs];
   },
-  getTransactionsUrl: _.curryRight(getTransactionsUrl)(true)
+  getTransactionLocator: function (transaction) {
+    return {
+      hash: transaction.hash
+    };
+  }
 };
 
 var getSummaryDecorator = {
-  selectResumeHeightFromList: function(uniqList) {
+  getTransactionsUrl: _.curryRight(getTransactionsUrl)(false),
+  getTransactionCollections: function(wallet) {
+    return [wallet.txrefs, wallet.unconfirmed_txrefs];
+  },
+  getTransactionLocator: function (transaction) {
+    return {
+      tx_hash: transaction.tx_hash,
+      tx_input_n: transaction.tx_input_n,
+      tx_output_n: transaction.tx_output_n
+    };
+  }
+};
+
+
+function getTransactions(name, decorator) {
+  function selectResumeHeightFromList(uniqList) {
     // returns the second lowest to handle blocks with multiple transactions
     if (uniqList.length > 1) {
       return uniqList[1];
     } else {
       return uniqList[0];
     }
-  },
-  getTransactionsUrl: _.curryRight(getTransactionsUrl)(false)
-};
-
-
-function getTransactions(name, getHistory, decorator) {
+  }
 
   function getResumeHeight() {
     var allTransactions = _.flatten(arguments);
@@ -187,20 +202,16 @@ function getTransactions(name, getHistory, decorator) {
     });
     blockHeights.sort();
 
-    return decorator.selectResumeHeightFromList(_.uniq(blockHeights, true));
+    return selectResumeHeightFromList(_.uniq(blockHeights, true));
   }
 
-  function isTransactionSummaryInList(list, transaction) {
-    return !!_.find(list, {
-      tx_hash: transaction.tx_hash,
-      tx_input_n: transaction.tx_input_n,
-      tx_output_n: transaction.tx_output_n
-    });
+  function isTransactionInList(list, transaction) {
+    return !!_.find(list, decorator.getTransactionLocator(transaction));
   }
 
   function mergeNewTransactions(master, additions) {
     _.each(additions, function (transaction) {
-      if (!isTransactionSummaryInList(master, transaction)) {
+      if (!isTransactionInList(master, transaction)) {
         master.push(transaction);
       }
     });
@@ -230,9 +241,7 @@ function getTransactions(name, getHistory, decorator) {
           mergeNewTransactions(wallet.txs, data.txs);
         }
         if (data.hasMore) {
-          var resumeHeight = getHistory ?
-            getResumeHeight(wallet.txs) :
-            getResumeHeight(wallet.txrefs, wallet.unconfirmed_txrefs);
+          var resumeHeight = getResumeHeight.apply(this, decorator.getTransactionCollections(wallet));
           return getMoreTransactions(resolve, wallet, resumeHeight);
         } else {
           resolve(wallet);
@@ -385,12 +394,17 @@ function sendRawTransaction(rawTransaction) {
   );
 }
 
+function getWebsiteTransactionUrl(hash) {
+  return 'https://live.blockcypher.com/btc/tx/' + hash + '/';
+}
+
 module.exports = {
   sendTransactionUrl: sendTransactionUrl,
   getWallet: getWallet,
   getUnusedAddressNode: getUnusedAddressNode,
-  getUnspentTransactionSummaries: _.curryRight(getTransactions)(false, getSummaryDecorator),
-  getTransactionHistory: _.curryRight(getTransactions)(true, getHistoryDecorator),
+  getUnspentTransactionSummaries: _.curryRight(getTransactions)(getSummaryDecorator),
+  getTransactionHistory: _.curryRight(getTransactions)(getHistoryDecorator),
   getTransaction: getTransaction,
+  getTransactionUrl: getWebsiteTransactionUrl,
   sendRawTransaction: sendRawTransaction
 };
