@@ -147,6 +147,10 @@ dispatcher.when('GetUnusedExternalAddressNode', function(client, request) {
     });
 });
 
+dispatcher.when('GetTransactionHistory', function(client, request) {
+  return walletNodeService.getTransactionHistory(request.walletId);
+});
+
 dispatcher.when('ChangePin', function (client, request) {
   return client.changePin(request);
 });

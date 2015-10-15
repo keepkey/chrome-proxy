@@ -75,25 +75,37 @@ function reloadBalances() {
     });
 }
 
-function getHdNodeForAddress(node, address) {
+function getWalletAddressNode(node, address) {
   var chains = node.wallet && node.wallet.chains;
-  var path = _.reduce(chains, function (nodePath, chain) {
+  var addressNode = _.reduce(chains, function (nodePath, chain) {
     if (!nodePath) {
       var addressNode = _.find(chain.chain_addresses, {address: address});
-      nodePath = addressNode && addressNode.path;
+      nodePath = addressNode;
     }
     return nodePath;
   }, undefined);
-
-  console.assert(path, 'Unable to find the node path for ' + address + ' in node. API data incorrect?', node);
-  return path;
+  return addressNode;
 }
 
+function getHdNodeForAddress(node, address) {
+  var addressNode = getWalletAddressNode(node, address);
+  console.assert(addressNode, 'Unable to find the node path for ' + address + ' in node. API data incorrect?', addressNode);
+  return addressNode.path;
+}
+
+function changeDetectedInNodes(originalNodes) {
+  return !_.isEqual(nodes, originalNodes, function (value, other, index) {
+    if (index === 'confidence') {
+      var delta = Math.abs(value - other);
+      return delta < ACCEPTABLE_CONFIDENCE_DELTA;
+    }
+  });
+}
 function loadUnspentTransactionSummaries(nodeId) {
   var node;
   var originalNodes = _.clone(nodes, true);
   return getWalletServicePromise()
-    .then(function (nodes) {
+    .then(function () {
       node = nodes[0]; //_.find(nodes, { id: nodeId });
       return blockcypher.getUnspentTransactionSummaries(node.deviceId);
     })
@@ -127,25 +139,20 @@ function loadUnspentTransactionSummaries(nodeId) {
 
       _.merge(node, data);
 
-      if (!_.isEqual(nodes, originalNodes, function(value, other, index) {
-          if (index === 'confidence') {
-            var delta = Math.abs(value - other);
-            return delta < ACCEPTABLE_CONFIDENCE_DELTA;
-          }
-        })) {
+      if (changeDetectedInNodes(originalNodes)) {
         eventEmitter.emit('changed', nodes);
       }
       return node;
     })
     .then(getUnusedAddressNodeFactory(0))
-    .catch(function() {
+    .catch(function () {
       return node;
     });
 }
 
 function registerPublicKey(publicKeyObject) {
   return getWalletServicePromise()
-    .then(function (nodes) {
+    .then(function () {
       var node = nodes[0];
       if (node.wallet.xpub !== publicKeyObject.xpub) {
         node.wallet.xpub = publicKeyObject.xpub;
@@ -162,7 +169,7 @@ function registerPublicKey(publicKeyObject) {
         return nodes;
       }
     })
-    .catch(function() {
+    .catch(function () {
       console.error('error registering a public key');
     });
 }
@@ -185,6 +192,99 @@ var getUnusedAddressNodeFactory = function (index) {
   };
 };
 
+function getTransactionHistory(walletNode) {
+  var originalNodes;
+  var node;
+
+  function categorizeFragments(fragments, localAddresses) {
+    var result = {
+      local: [],
+      foreign: []
+    };
+
+    _.each(fragments, function(fragment) {
+      console.assert(fragment.addresses.length === 1,
+        'A fragment should have one address associated with it');
+      if (localAddresses.indexOf(fragment.addresses[0]) === -1) {
+        result.foreign.push(fragment);
+      } else {
+        result.local.push(fragment);
+      }
+    });
+    return result;
+  }
+
+  return getWalletServicePromise()
+    .then(function () {
+      originalNodes = _.clone(nodes, true);
+      node = nodes[0]; //_.find(nodes, { id: nodeId });
+      return blockcypher.getTransactionHistory(node.deviceId);
+    })
+    .then(function (data) {
+
+      var txHist = _.collect(data.txs, function (tx) {
+        console.assert(tx.inputs.length, 'There must be inputs to a transction');
+        var splitInputs = categorizeFragments(tx.inputs, data.wallet.addresses);
+        console.assert(!splitInputs.local.length || !splitInputs.foreign.length,
+          'Transaction inputs must be all local or all foreign');
+        var localInputAmount = _.reduce(splitInputs.local, function(amount, input) {
+          return amount + input.output_value;
+        }, 0);
+
+        console.assert(tx.outputs.length, 'There must be outputs to a transaction');
+        var splitOutputs = categorizeFragments(tx.outputs, data.wallet.addresses);
+        var localOutputAmount = _.reduce(splitOutputs.local, function(amount, output) {
+          return amount + output.value;
+        }, 0);
+
+        var amountReceived = 0, amountSent = 0, fee = 0, addresses = [];
+
+        if (localInputAmount === 0) {
+          amountReceived = localOutputAmount;
+          addresses = _.flatten(_.pluck(splitInputs.foreign, 'addresses'));
+        } else {
+          var inputAmount = _.reduce(tx.inputs, function(sum, input) {
+            return sum + input.output_value;
+          }, 0);
+          var outputAmount = _.reduce(tx.outputs, function(sum, output) {
+            return sum + output.value;
+          }, 0);
+          fee = inputAmount - outputAmount;
+          amountSent = localInputAmount - localOutputAmount - fee;
+          addresses = _.flatten(_.pluck(splitOutputs.foreign, 'addresses'));
+        }
+
+        return {
+          date: tx.received,
+          timestamp: new Date(tx.received),
+          confidence: tx.confidence,
+          amountReceived: amountReceived,
+          amountSent: amountSent,
+          fee: fee,
+          addresses: addresses,
+          pending: tx.confidence < HIGH_CONFIDENCE_LEVEL,
+          link: blockcypher.getTransactionUrl(tx.hash)
+        };
+      });
+
+      txHist.sort(function (tx, other) {
+        return other.timestamp - tx.timestamp;
+      });
+
+      _.reduceRight(txHist, function(balance, tx) {
+        tx.balance = balance + tx.amountReceived - tx.amountSent - tx.fee;
+        return tx.balance;
+      }, 0);
+
+      _.merge(node, data, {txHist: txHist});
+
+      if (changeDetectedInNodes(originalNodes)) {
+        console.log('changed');
+        eventEmitter.emit('changed', nodes);
+      }
+    });
+}
+
 module.exports = {
   nodes: nodes,
   getNodesPromise: getWalletServicePromise,
@@ -196,5 +296,6 @@ module.exports = {
   addListener: eventEmitter.addListener.bind(eventEmitter),
   loadUnspentTransactionSummaries: loadUnspentTransactionSummaries,
   reloadBalances: reloadBalances,
+  getTransactionHistory: getTransactionHistory,
   HIGH_CONFIDENCE_LEVEL: HIGH_CONFIDENCE_LEVEL
 };
