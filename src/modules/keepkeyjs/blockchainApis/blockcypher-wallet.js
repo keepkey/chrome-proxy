@@ -55,6 +55,7 @@ function getTransactionsUrl(name, before, getHistory) {
     parameters.push(urlParameter('unspentOnly', 'true'));
   } else {
     path.push(FULL_TRANSACTIONS);
+    parameters.push(urlParameter('limit', '50'));
   }
 
   return [
@@ -159,7 +160,7 @@ function getWallet(name, xpub) {
 
 var getHistoryDecorator = {
   getTransactionsUrl: _.curryRight(getTransactionsUrl)(true),
-  getTransactionCollections: function(wallet) {
+  getTransactionCollections: function (wallet) {
     return [wallet.txs];
   },
   getTransactionLocator: function (transaction) {
@@ -171,7 +172,7 @@ var getHistoryDecorator = {
 
 var getSummaryDecorator = {
   getTransactionsUrl: _.curryRight(getTransactionsUrl)(false),
-  getTransactionCollections: function(wallet) {
+  getTransactionCollections: function (wallet) {
     return [wallet.txrefs, wallet.unconfirmed_txrefs];
   },
   getTransactionLocator: function (transaction) {
@@ -205,16 +206,58 @@ function getTransactions(name, decorator) {
     return selectResumeHeightFromList(_.uniq(blockHeights, true));
   }
 
-  function isTransactionInList(list, transaction) {
-    return !!_.find(list, decorator.getTransactionLocator(transaction));
+  function getTransactionFromList(list, transaction) {
+    return _.find(list, decorator.getTransactionLocator(transaction));
+  }
+
+  function isTransactionComplete(transaction) {
+    return transaction.vin_sz > transaction.inputs.length ||
+      transaction.vout_sz > transaction.outputs.length;
+  }
+
+  function getPartialTransactionUrl(hash, inputStartIndex, outputStartIndex) {
+    return [
+      [API_ROOT, TX_PATH, hash].join('/'),
+      [
+        API_TOKEN_PARAMETER,
+        urlParameter('limit', '500'),
+        urlParameter('instart', inputStartIndex),
+        urlParameter('outstart', outputStartIndex)
+      ].join('&')
+    ].join('?');
+  }
+
+  function downloadLargeTransaction(transaction) {
+    var startInputIndex = transaction.inputs.length;
+    var startOutputIndex = transaction.outputs.length;
+    return httpClient.get(getPartialTransactionUrl(transaction.hash, startInputIndex, startOutputIndex))
+      .then(function (data) {
+        Array.prototype.push.apply(transaction.inputs, data.inputs);
+        Array.prototype.push.apply(transaction.outputs, data.outputs);
+        if (isTransactionComplete(transaction)) {
+          return downloadLargeTransaction(transaction);
+        }
+      });
   }
 
   function mergeNewTransactions(master, additions) {
+    var promise = Promise.resolve();
     _.each(additions, function (transaction) {
-      if (!isTransactionInList(master, transaction)) {
+      if (!getTransactionFromList(master, transaction)) {
         master.push(transaction);
       }
+
+      if (isTransactionComplete(transaction)) {
+        promise = promise.then(function () {
+          return downloadLargeTransaction(transaction);
+        });
+      }
+      promise = promise.then(function () {
+        console.assert(transaction.vin_sz === transaction.inputs.length, 'vin_sz should match the number of inputs');
+        console.assert(transaction.vout_sz === transaction.outputs.length, 'vout_sz should match the number of outputs');
+      });
     });
+    return promise;
   }
 
   function getMoreTransactions(resolve, wallet, before) {
@@ -232,14 +275,26 @@ function getTransactions(name, decorator) {
         if (!data.txs) {
           data.txs = [];
         }
-
+        return data;
+      })
+      .then(function (data) {
         if (!wallet.txrefs && !wallet.unconfirmed_txrefs && !wallet.txs) {
           _.extend(wallet, data);
+          return data;
         } else {
-          mergeNewTransactions(wallet.txrefs, data.txrefs);
-          mergeNewTransactions(wallet.unconfirmed_txrefs, data.unconfirmed_txrefs);
-          mergeNewTransactions(wallet.txs, data.txs);
+          return mergeNewTransactions(wallet.txrefs, data.txrefs)
+            .then(function () {
+              return mergeNewTransactions(wallet.unconfirmed_txrefs, data.unconfirmed_txrefs);
+            })
+            .then(function () {
+              return mergeNewTransactions(wallet.txs, data.txs);
+            })
+            .then(function () {
+              return data;
+            });
         }
+      })
+      .then(function (data) {
         if (data.hasMore) {
           var resumeHeight = getResumeHeight.apply(this, decorator.getTransactionCollections(wallet));
           return getMoreTransactions(resolve, wallet, resumeHeight);
@@ -365,7 +420,10 @@ function getTransactionUrl(hash) {
   //https://api.blockcypher.com/v1/btc/main/txs/{{transaction-hash}}?token={{api-token}}
   return [
     [API_ROOT, TX_PATH, hash].join('/'),
-    API_TOKEN_PARAMETER
+    [
+      API_TOKEN_PARAMETER,
+      urlParameter('limit', '500')
+    ].join('&')
   ].join('?');
 
 }

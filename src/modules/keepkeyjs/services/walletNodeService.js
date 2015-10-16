@@ -202,10 +202,11 @@ function getTransactionHistory(walletNode) {
       foreign: []
     };
 
-    _.each(fragments, function(fragment) {
-      console.assert(fragment.addresses.length === 1,
+    _.each(fragments, function (fragment) {
+      console.assert((fragment.output_index === -1) || (fragment.addresses && fragment.addresses.length === 1),
         'A fragment should have one address associated with it');
-      if (localAddresses.indexOf(fragment.addresses[0]) === -1) {
+      if (!fragment.addresses || !fragment.addresses.length ||
+        localAddresses.indexOf(fragment.addresses[0]) === -1) {
         result.foreign.push(fragment);
       } else {
         result.local.push(fragment);
@@ -221,19 +222,18 @@ function getTransactionHistory(walletNode) {
       return blockcypher.getTransactionHistory(node.deviceId);
     })
     .then(function (data) {
-
       var txHist = _.collect(data.txs, function (tx) {
         console.assert(tx.inputs.length, 'There must be inputs to a transction');
         var splitInputs = categorizeFragments(tx.inputs, data.wallet.addresses);
         console.assert(!splitInputs.local.length || !splitInputs.foreign.length,
           'Transaction inputs must be all local or all foreign');
-        var localInputAmount = _.reduce(splitInputs.local, function(amount, input) {
+        var localInputAmount = _.reduce(splitInputs.local, function (amount, input) {
           return amount + input.output_value;
         }, 0);
 
         console.assert(tx.outputs.length, 'There must be outputs to a transaction');
         var splitOutputs = categorizeFragments(tx.outputs, data.wallet.addresses);
-        var localOutputAmount = _.reduce(splitOutputs.local, function(amount, output) {
+        var localOutputAmount = _.reduce(splitOutputs.local, function (amount, output) {
           return amount + output.value;
         }, 0);
 
@@ -243,10 +243,10 @@ function getTransactionHistory(walletNode) {
           amountReceived = localOutputAmount;
           addresses = _.flatten(_.pluck(splitInputs.foreign, 'addresses'));
         } else {
-          var inputAmount = _.reduce(tx.inputs, function(sum, input) {
+          var inputAmount = _.reduce(tx.inputs, function (sum, input) {
             return sum + input.output_value;
           }, 0);
-          var outputAmount = _.reduce(tx.outputs, function(sum, output) {
+          var outputAmount = _.reduce(tx.outputs, function (sum, output) {
             return sum + output.value;
           }, 0);
           fee = inputAmount - outputAmount;
@@ -271,7 +271,7 @@ function getTransactionHistory(walletNode) {
         return other.timestamp - tx.timestamp;
       });
 
-      _.reduceRight(txHist, function(balance, tx) {
+      _.reduceRight(txHist, function (balance, tx) {
         tx.balance = balance + tx.amountReceived - tx.amountSent - tx.fee;
         return tx.balance;
       }, 0);
