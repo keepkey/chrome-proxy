@@ -243,6 +243,9 @@ function getTransactions(name, decorator) {
   function mergeNewTransactions(master, additions) {
     var promise = Promise.resolve();
     _.each(additions, function (transaction) {
+      if (transaction.inputs.length === 1 && transaction.inputs[0].output_index === -1) {
+        transaction.inputs[0].addresses = ['<new>'];
+      }
       if (!getTransactionFromList(master, transaction)) {
         master.push(transaction);
       }

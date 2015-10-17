@@ -203,7 +203,7 @@ function getTransactionHistory(walletNode) {
     };
 
     _.each(fragments, function (fragment) {
-      console.assert((fragment.output_index === -1) || (fragment.addresses && fragment.addresses.length === 1),
+      console.assert(fragment.addresses && fragment.addresses.length === 1,
         'A fragment should have one address associated with it');
       if (!fragment.addresses || !fragment.addresses.length ||
         localAddresses.indexOf(fragment.addresses[0]) === -1) {
@@ -241,7 +241,7 @@ function getTransactionHistory(walletNode) {
 
         if (localInputAmount === 0) {
           amountReceived = localOutputAmount;
-          addresses = _.flatten(_.pluck(splitInputs.foreign, 'addresses'));
+          addresses = _.uniq(_.flatten(_.pluck(splitInputs.foreign, 'addresses')));
         } else {
           var inputAmount = _.reduce(tx.inputs, function (sum, input) {
             return sum + input.output_value;
@@ -251,7 +251,11 @@ function getTransactionHistory(walletNode) {
           }, 0);
           fee = inputAmount - outputAmount;
           amountSent = localInputAmount - localOutputAmount - fee;
-          addresses = _.flatten(_.pluck(splitOutputs.foreign, 'addresses'));
+          addresses = _.uniq(_.flatten(_.pluck(splitOutputs.foreign, 'addresses')));
+        }
+
+        if (addresses.length === 0) {
+          addresses = ['<internal transfer>'];
         }
 
         return {
