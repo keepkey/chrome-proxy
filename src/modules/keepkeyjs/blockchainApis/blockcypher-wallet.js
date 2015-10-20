@@ -42,7 +42,7 @@ function getTransactionsUrl(name, before, getHistory) {
   //https://api.blockcypher.com/v1/btc/main/addrs/{{name}}?token={{api-token}}&limit=200&unspentOnly=true
   var parameters = [
     API_TOKEN_PARAMETER,
-    urlParameter('omitWalletAddresses', true)
+    //urlParameter('omitWalletAddresses', true)
   ];
 
   var path = [API_ROOT, ADDRESS_API_PATH, name];
@@ -467,5 +467,6 @@ module.exports = {
   getTransactionHistory: _.curryRight(getTransactions)(getHistoryDecorator),
   getTransaction: getTransaction,
   getTransactionUrl: getWebsiteTransactionUrl,
+  deleteWallet: deleteWallet,
   sendRawTransaction: sendRawTransaction
 };

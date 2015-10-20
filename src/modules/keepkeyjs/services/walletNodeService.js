@@ -289,6 +289,13 @@ function getTransactionHistory(walletNode) {
     });
 }
 
+function deleteWallet(walletId) {
+  var wallet = findNodeById(walletId);
+  var name = wallet.deviceId;
+  clear();
+  return blockcypher.deleteWallet(name);
+}
+
 module.exports = {
   nodes: nodes,
   getNodesPromise: getWalletServicePromise,
@@ -300,6 +307,7 @@ module.exports = {
   addListener: eventEmitter.addListener.bind(eventEmitter),
   loadUnspentTransactionSummaries: loadUnspentTransactionSummaries,
   reloadBalances: reloadBalances,
+  deleteWallet: deleteWallet,
   getTransactionHistory: getTransactionHistory,
   HIGH_CONFIDENCE_LEVEL: HIGH_CONFIDENCE_LEVEL
 };

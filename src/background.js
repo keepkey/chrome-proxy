@@ -98,14 +98,14 @@ dispatcher.when('GetWalletNodes', function (client, request) {
     .then(function (nodes) {
       sendMessageToUI('WalletNodes', nodes);
     })
-    .catch(function() {
+    .catch(function () {
       sendMessageToUI('WalletNodes', walletNodeService.nodes);
     });
 });
 
-dispatcher.when('ReloadBalances', function(client, request) {
+dispatcher.when('ReloadBalances', function (client, request) {
   return walletNodeService.reloadBalances()
-    .then(function(nodes) {
+    .then(function (nodes) {
       sendMessageToUI('WalletNodes', nodes);
     });
 });
@@ -125,29 +125,29 @@ dispatcher.when('GetFees', function () {
   );
 });
 
-dispatcher.when('EstimateFeeForTransaction', function(client, request) {
+dispatcher.when('EstimateFeeForTransaction', function (client, request) {
   return feeService.estimateFees(
     request.walletNode, request.transactionAmount)
-    .then(function(fee) {
-      sendMessageToUI('EstimatedTransactionFee', { 'fee': fee });
+    .then(function (fee) {
+      sendMessageToUI('EstimatedTransactionFee', {'fee': fee});
     });
 });
 
-dispatcher.when('GetMaximumTransactionAmount', function(client, request) {
+dispatcher.when('GetMaximumTransactionAmount', function (client, request) {
   return feeService.getMaximumTransactionAmount(request.walletNode, 'slow')
-    .then(function(amount) {
+    .then(function (amount) {
       sendMessageToUI('MaximumTransactionAmount', {max: amount});
     });
 });
 
-dispatcher.when('GetUnusedExternalAddressNode', function(client, request) {
+dispatcher.when('GetUnusedExternalAddressNode', function (client, request) {
   return walletNodeService.getUnusedExternalAddressNode()
-    .then(function() {
+    .then(function () {
       sendMessageToUI('WalletNodes', walletNodeService.nodes);
     });
 });
 
-dispatcher.when('GetTransactionHistory', function(client, request) {
+dispatcher.when('GetTransactionHistory', function (client, request) {
   return walletNodeService.getTransactionHistory(request.walletId);
 });
 
@@ -157,6 +157,26 @@ dispatcher.when('ChangePin', function (client, request) {
 
 dispatcher.when('ApplySettings', function (client, request) {
   return client.applySettings(request);
+});
+
+dispatcher.when('RegenerateWallet', function (client, request) {
+  return walletNodeService.deleteWallet(request.walletId)
+    .then(function () {
+      return client.initialize();
+    })
+    .then(function () {
+      console.assert(walletNodeService.nodes, 'nodes should be populated now');
+      sendMessageToUI('WalletNodes', walletNodeService.nodes);
+    });
+  //.then(function() {
+  //  console.assert(!walletNodeService.nodes, 'nodes should be cleared');
+  //  return walletNodeService.getNodesPromise();
+  //})
+  //.catch(walletNodeService.getNodesPromise)
+  //.catch(function() {
+  //  console.assert(walletNodeService.nodes, 'nodes should be populated now');
+  //  sendMessageToUI('WalletNodes', walletNodeService.nodes);
+  //});
 });
 
 dispatcher.otherwise(function (request, response, sendResponse) {
