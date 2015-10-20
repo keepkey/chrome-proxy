@@ -2,17 +2,10 @@ var _ = require('lodash');
 var EventEmitter2 = require('eventemitter2').EventEmitter2;
 var featuresService = require('../featuresService.js');
 var blockcypher = require('../blockchainApis/blockcypher-wallet.js');
-
-const DEFAULT_NODES = [{
-  hdNode: "m/44'/0'/0'",
-  nodePath: [2147483692, 2147483648, 2147483648],
-  wallet: {}
-}];
-const HIGH_CONFIDENCE_LEVEL = 0.98;
-const ACCEPTABLE_CONFIDENCE_DELTA = 0.001;
+var config = require('../../../../dist/config.json');
 
 var eventEmitter = new EventEmitter2();
-var nodes = _.cloneDeep(DEFAULT_NODES);
+var nodes = _.cloneDeep(config.defaultAccounts);
 
 var walletServicePromise = getWalletServicePromise();
 
@@ -97,7 +90,7 @@ function changeDetectedInNodes(originalNodes) {
   return !_.isEqual(nodes, originalNodes, function (value, other, index) {
     if (index === 'confidence') {
       var delta = Math.abs(value - other);
-      return delta < ACCEPTABLE_CONFIDENCE_DELTA;
+      return delta < config.confidenceThreshholds.acceptableDelta;
     }
   });
 }
@@ -126,7 +119,7 @@ function loadUnspentTransactionSummaries(nodeId) {
         if (!it.hdNode) {
           it.hdNode = getHdNodeForAddress(node, it.address);
         }
-        if (it.value > 0 && it.confidence >= HIGH_CONFIDENCE_LEVEL) {
+        if (it.value > 0 && it.confidence >= config.confidenceThreshholds.highConfidence) {
           data.highConfidenceBalance += it.value;
         } else {
           data.lowConfidenceBalance += it.value;
@@ -176,7 +169,7 @@ function registerPublicKey(publicKeyObject) {
 
 function clear() {
   nodes.length = 0;
-  Array.prototype.push.apply(nodes, _.cloneDeep(DEFAULT_NODES));
+  Array.prototype.push.apply(nodes, _.cloneDeep(config.defaultAccounts));
   walletServicePromise = undefined;
 }
 
@@ -266,7 +259,7 @@ function getTransactionHistory(walletNode) {
           amountSent: amountSent,
           fee: fee,
           addresses: addresses,
-          pending: tx.confidence < HIGH_CONFIDENCE_LEVEL,
+          pending: tx.confidence < config.confidenceThreshholds.highConfidence,
           link: blockcypher.getTransactionUrl(tx.hash)
         };
       });
@@ -300,6 +293,5 @@ module.exports = {
   addListener: eventEmitter.addListener.bind(eventEmitter),
   loadUnspentTransactionSummaries: loadUnspentTransactionSummaries,
   reloadBalances: reloadBalances,
-  getTransactionHistory: getTransactionHistory,
-  HIGH_CONFIDENCE_LEVEL: HIGH_CONFIDENCE_LEVEL
+  getTransactionHistory: getTransactionHistory
 };

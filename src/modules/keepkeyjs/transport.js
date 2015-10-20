@@ -23,178 +23,177 @@
 var jspack = require('jspack').jspack;
 var ByteBuffer = require('bytebuffer');
 var logger = require('../../logger.js');
+var config = require('../../../dist/config.json');
 
 module.exports.MSG_HEADER_START = '##';
 module.exports.MSG_HEADER_LENGTH = jspack.CalcLength('>HL');
 
-module.exports.DEVICES = {
-    KEEPKEY: {vendorId: 11044, productId: 1}
-};
+module.exports.DEVICES = config.usbDeviceParameters;
 
 var transports = {},
-    messageMaps = {};
+  messageMaps = {};
 
 module.exports.create = (function () {
 
-    function transportMaker(deviceId) {
+  function transportMaker(deviceId) {
 
-        var transport = {},          // new transport object
-            messageMap = null,    // message map that facilitates msg type and class lookup
-            protoBuf = null;      // protocol buffers for transport
+    var transport = {},          // new transport object
+      messageMap = null,    // message map that facilitates msg type and class lookup
+      protoBuf = null;      // protocol buffers for transport
 
-        function parseMsg(msgType, msgBB) {
-            var msgClass = transport.getMsgClass(msgType);
-            return protoBuf[msgClass].decode(msgBB);
-        }
-
-        transport.setMessageMap = function (deviceType, proto) {
-            var msgClass = '', currentMsgClass = '';
-
-            if (!messageMaps.hasOwnProperty(deviceType)) {
-                messageMaps[deviceType] = {
-                    msgTypeToClass: {},
-                    msgClassToType: {}
-                };
-
-                // cache message maps
-                for (msgClass in proto.MessageType) {
-                    if (proto.MessageType.hasOwnProperty(msgClass)) {
-                        currentMsgClass = msgClass.replace('MessageType_', '');
-                        messageMaps[deviceType].msgClassToType[currentMsgClass] = proto.MessageType[msgClass];
-                        messageMaps[deviceType].msgTypeToClass[proto.MessageType[msgClass]] = currentMsgClass;
-                    }
-                }
-            }
-
-            messageMap = messageMaps[deviceType];
-            protoBuf = proto;
-        };
-
-        transport.getMsgType = function (msgClass) {
-            if (!messageMap.msgClassToType.hasOwnProperty(msgClass)) {
-                throw {
-                    name: 'Error',
-                    message: 'Cannot find message name.'
-                };
-            } else {
-                return messageMap.msgClassToType[msgClass];
-            }
-        };
-
-        transport.getMsgClass = function (msgType) {
-            if (!messageMap.msgTypeToClass.hasOwnProperty(msgType)) {
-                throw {
-                    name: 'Error',
-                    message: 'Cannot find message id.'
-                };
-            } else {
-                return messageMap.msgTypeToClass[msgType];
-            }
-        };
-
-        transport.getDeviceId = function () {
-            return deviceId;
-        };
-
-        transport.getDeviceInfo = function () {
-            return {};
-        };
-
-        transport.pendingWriteQueue = Promise.resolve();
-        transport.write = function (txProtoMsg) {
-            var msgAB = txProtoMsg.encodeAB(),
-                msgBB = ByteBuffer.concat([
-                        ByteBuffer.wrap('##'),                                                                        // message start
-                        new Uint8Array(jspack.Pack('>HL', [transport.getMsgType(txProtoMsg.$type.name), msgAB.byteLength])), // header
-                        msgAB]                                                                                        // message
-                );
-
-            logger.debug('adding message to the queue');
-            return transport.pendingWriteQueue
-                .then(function() {
-                    logger.debug('sending message');
-                    return transport._write(msgBB);
-                });
-        };
-
-        transport.read = function () {
-            return transport._read()
-                .then(function (rxMsg) {
-                    var message = parseMsg(rxMsg.header.msgType, ByteBuffer.wrap(rxMsg.bufferBB.toArrayBuffer().slice(0, rxMsg.header.msgLength)));
-                    return message;
-                });
-        };
-
-        transport._write = function () {
-            logger.error("Error: The protected _write() function is not implemented");
-            throw {
-                name: 'Error',
-                message: '_write not implemented.'
-            };
-        };
-
-        transport._read = function () {
-            logger.error("Error: The protected _read() function is not implemented");
-            throw {
-                name: 'Error',
-                message: '_read not implemented.'
-            };
-        };
-
-        return transport;
-
+    function parseMsg(msgType, msgBB) {
+      var msgClass = transport.getMsgClass(msgType);
+      return protoBuf[msgClass].decode(msgBB);
     }
 
-    return function (deviceId) {
+    transport.setMessageMap = function (deviceType, proto) {
+      var msgClass = '', currentMsgClass = '';
 
-        if (!transports.hasOwnProperty(deviceId)) {
-            transports[deviceId] = transportMaker(deviceId);
+      if (!messageMaps.hasOwnProperty(deviceType)) {
+        messageMaps[deviceType] = {
+          msgTypeToClass: {},
+          msgClassToType: {}
+        };
+
+        // cache message maps
+        for (msgClass in proto.MessageType) {
+          if (proto.MessageType.hasOwnProperty(msgClass)) {
+            currentMsgClass = msgClass.replace('MessageType_', '');
+            messageMaps[deviceType].msgClassToType[currentMsgClass] = proto.MessageType[msgClass];
+            messageMaps[deviceType].msgTypeToClass[proto.MessageType[msgClass]] = currentMsgClass;
+          }
         }
+      }
 
-        return transports[deviceId];
+      messageMap = messageMaps[deviceType];
+      protoBuf = proto;
     };
+
+    transport.getMsgType = function (msgClass) {
+      if (!messageMap.msgClassToType.hasOwnProperty(msgClass)) {
+        throw {
+          name: 'Error',
+          message: 'Cannot find message name.'
+        };
+      } else {
+        return messageMap.msgClassToType[msgClass];
+      }
+    };
+
+    transport.getMsgClass = function (msgType) {
+      if (!messageMap.msgTypeToClass.hasOwnProperty(msgType)) {
+        throw {
+          name: 'Error',
+          message: 'Cannot find message id.'
+        };
+      } else {
+        return messageMap.msgTypeToClass[msgType];
+      }
+    };
+
+    transport.getDeviceId = function () {
+      return deviceId;
+    };
+
+    transport.getDeviceInfo = function () {
+      return {};
+    };
+
+    transport.pendingWriteQueue = Promise.resolve();
+    transport.write = function (txProtoMsg) {
+      var msgAB = txProtoMsg.encodeAB(),
+        msgBB = ByteBuffer.concat([
+            ByteBuffer.wrap('##'),                                                                        // message start
+            new Uint8Array(jspack.Pack('>HL', [transport.getMsgType(txProtoMsg.$type.name), msgAB.byteLength])), // header
+            msgAB]                                                                                        // message
+        );
+
+      logger.debug('adding message to the queue');
+      return transport.pendingWriteQueue
+        .then(function () {
+          logger.debug('sending message');
+          return transport._write(msgBB);
+        });
+    };
+
+    transport.read = function () {
+      return transport._read()
+        .then(function (rxMsg) {
+          var message = parseMsg(rxMsg.header.msgType, ByteBuffer.wrap(rxMsg.bufferBB.toArrayBuffer().slice(0, rxMsg.header.msgLength)));
+          return message;
+        });
+    };
+
+    transport._write = function () {
+      logger.error("Error: The protected _write() function is not implemented");
+      throw {
+        name: 'Error',
+        message: '_write not implemented.'
+      };
+    };
+
+    transport._read = function () {
+      logger.error("Error: The protected _read() function is not implemented");
+      throw {
+        name: 'Error',
+        message: '_read not implemented.'
+      };
+    };
+
+    return transport;
+
+  }
+
+  return function (deviceId) {
+
+    if (!transports.hasOwnProperty(deviceId)) {
+      transports[deviceId] = transportMaker(deviceId);
+    }
+
+    return transports[deviceId];
+  };
 })();
 
 module.exports.parseMsgHeader = function (msgBB) {
-    var msgHeader;
+  var msgHeader;
 
-    // check for header message start
-    for (var i = 0,
-             iMax = module.exports.MSG_HEADER_START.length; i < iMax; i += 1) {
-        var next = String.fromCharCode(msgBB.readByte());
+  // check for header message start
+  for (var i = 0,
+         iMax = module.exports.MSG_HEADER_START.length; i < iMax; i += 1) {
+    var next = String.fromCharCode(msgBB.readByte());
 
-        if (next !== module.exports.MSG_HEADER_START[i]) {
-            throw {
-                name: 'Error',
-                message: 'Message header not found when it was expected.'
-            };
-        }
+    if (next !== module.exports.MSG_HEADER_START[i]) {
+      throw {
+        name: 'Error',
+        message: 'Message header not found when it was expected.'
+      };
     }
+  }
 
-    // unpack header
-    msgHeader = jspack.Unpack('>HL', new Uint8Array(msgBB.toArrayBuffer().slice(0, module.exports.MSG_HEADER_LENGTH)));
+  // unpack header
+  msgHeader = jspack.Unpack('>HL', new Uint8Array(msgBB.toArrayBuffer().slice(0, module.exports.MSG_HEADER_LENGTH)));
 
-    // reset msg bytebuffer
-    msgBB.reset();
+  // reset msg bytebuffer
+  msgBB.reset();
 
-    return {
-        msgType: msgHeader.shift(),
-        msgLength: msgHeader.shift()
-    };
+  return {
+    msgType: msgHeader.shift(),
+    msgLength: msgHeader.shift()
+  };
 };
 
 module.exports.hasDeviceId = function (deviceId) {
-    return transports.hasOwnProperty(deviceId);
+  return transports.hasOwnProperty(deviceId);
 };
 
 module.exports.getDeviceIds = function () {
-    return Object.keys(transports);
+  return Object.keys(transports);
 };
 
 module.exports.find = function (deviceId) {
-    return transports[deviceId];
+  return transports[deviceId];
 };
 
 module.exports.remove = function (deviceId) {
-    delete transports[deviceId];
+  delete transports[deviceId];
 };
