@@ -33,7 +33,7 @@ var dispatcher = require('./messageDispatcher');
 var walletNodeService = require('./modules/keepkeyjs/services/walletNodeService.js');
 var feeService = require('./modules/keepkeyjs/services/feeService.js');
 var logger = require('./logger.js');
-logger.levels(0, config.loggingLevel);
+logger.levels(0, 'info');
 
 var keepKeyWalletId = config.keepkeyWallet.applicationId;
 var clientEE = new EventEmitter2();

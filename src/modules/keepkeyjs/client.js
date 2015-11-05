@@ -30,12 +30,10 @@ var config = require('../../../dist/config.json');
 var _ = require('lodash');
 
 const KEEPKEY = 'KEEPKEY';
-const TREZOR = 'TREZOR';
 var DEVICES = require('./transport.js').DEVICES;
 var logger = require('../../logger.js');
 
 module.exports.KEEPKEY = KEEPKEY;
-module.exports.TREZOR = TREZOR;
 
 var clients = {},    // client pool
   clientTypes = {};  // client types used for client creation by type
@@ -44,6 +42,11 @@ clientTypes[KEEPKEY] = require('./keepkey/client.js');
 
 function buffer2Hex(k, v) {
   if (v && v.buffer) {
+    // NOTE: v.buffer is type Buffer in node and ArrayBuffer in chrome
+    if (v.buffer instanceof Buffer) {
+      return v.toHex();
+    }
+
     var hexstring = '';
     for (var i = v.offset; i < v.limit; i++) {
       if (v.view[i] < 16) {
@@ -67,8 +70,7 @@ function clientMaker(transport, protoBuf) {
   client.eventEmitter = new EventEmitter2();
   client.addListener = client.eventEmitter.addListener.bind(client.eventEmitter);
   client.writeToDevice = function (message) {
-    //logger.info('proxy --> device: [%s] %j', message.$type.name, message);
-    console.log('proxy --> device: [%s]\n', message.$type.name, JSON.stringify(message, buffer2Hex, config.jsonIndent));
+    logger.info('proxy --> device: [%s]\n', message.$type.name, JSON.stringify(message, buffer2Hex, config.jsonIndent));
     return transport.write.apply(transport, arguments);
   };
 
@@ -78,7 +80,6 @@ function clientMaker(transport, protoBuf) {
   client.crypto = require('./chrome/chromeCrypto.js');
 
   client.initialize = function () {
-    //walletNodeService.reloadData();
     return client.writeToDevice(new client.protoBuf.Initialize());
   };
   client.cancel = require('./clientActions/cancel.js').bind(client);
@@ -92,6 +93,10 @@ function clientMaker(transport, protoBuf) {
   client.firmwareUpload = require('./clientActions/firmwareUpload.js').bind(client);
   client.getAddress = require('./clientActions/getAddress.js').bind(client);
   client.getPublicKey = require('./clientActions/getPublicKey.js').bind(client);
+  client.signMessage = require('./clientActions/signMessage.js').bind(client);
+  client.encryptMessage = require('./clientActions/encryptMessage.js').bind(client);
+  client.encryptKeyValue = require('./clientActions/encryptKeyValue.js').bind(client);
+  client.decryptKeyValue = require('./clientActions/decryptKeyValue.js').bind(client);
   client.endSession = require('./clientActions/endSession.js').bind(client);
   client.changePin = require('./clientActions/changePin.js').bind(client);
   client.applySettings = require('./clientActions/applySettings.js').bind(client);
@@ -138,8 +143,7 @@ function clientMaker(transport, protoBuf) {
       transport.read()
         .then(function dispatchIncomingMessage(message) {
           deviceInUse = false;
-          //logger.info('device --> proxy: [%s] %j', message.$type.name, message);
-          console.log('device --> proxy: [%s]\n', message.$type.name, JSON.stringify(message, buffer2Hex, config.jsonIndent));
+          logger.info('device --> proxy: [%s]\n', message.$type.name, JSON.stringify(message, buffer2Hex, config.jsonIndent));
           if (message) {
 
             client.eventEmitter.emit('DeviceMessage', message.$type.name, hydrate(message));
@@ -151,6 +155,9 @@ function clientMaker(transport, protoBuf) {
               return message;
             }
           }
+        })
+        .catch(function() {
+          logger.error('caught in client:', arguments);
         });
     }
   }, 0);

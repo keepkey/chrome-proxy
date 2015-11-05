@@ -8,7 +8,8 @@
     "nodePath": [2147483692, 2147483648, 2147483648],
     "wallet": {}
   }],
-  "loggingLevel": "info",
+  "cliLogLevel": "warn",
+  "chromeLogLevel": "info",
   "usbDeviceParameters": {
     "KEEPKEY": {
       "vendorId": 11044,
