@@ -28,11 +28,13 @@ var clientModule = require('./modules/keepkeyjs/client.js');
 var transportModule = require('./modules/keepkeyjs/transport.js');
 var transportHidModule = require('./modules/keepkeyjs/chrome/chromeTransportHid.js');
 var config = require('../dist/config.json');
+var manifest = require('../dist/manifest.json');
 var _ = require('lodash');
 var dispatcher = require('./messageDispatcher');
 var walletNodeService = require('./modules/keepkeyjs/services/walletNodeService.js');
 var feeService = require('./modules/keepkeyjs/services/feeService.js');
 var logger = require('./logger.js');
+var ByteBuffer = require('ByteBuffer');
 logger.levels(0, 'info');
 
 var keepKeyWalletId = config.keepkeyWallet.applicationId;
@@ -182,13 +184,30 @@ chrome.runtime.onMessageExternal.addListener(
   }
 );
 
+function hexifyBuffers(obj) {
+  var result = {};
+  for (var key in obj) {
+    if (obj.hasOwnProperty(key)) {
+      if (ByteBuffer.isByteBuffer(obj[key])) {
+        result[key] = obj[key].toHex();
+      } else {
+        result[key] = obj[key];
+      }
+    }
+  }
+  return result;
+}
+
+
 function sendMessageToUI(type, message) {
+  var messageToSend = hexifyBuffers(message);
+  console.log(messageToSend);
   logger.debug('proxy --> UI: [%s] %j', type, message);
   chrome.runtime.sendMessage(
     keepKeyWalletId,
     {
       messageType: type,
-      message: message
+      message: messageToSend
     }
   );
 }
@@ -204,6 +223,9 @@ module.exports = {
 function createClientForDevice(deviceTransport) {
   var client = clientModule.factory(deviceTransport);
   client.addListener('DeviceMessage', function onDeviceMessage(type, message) {
+    if (type === "Features") {
+      message.proxy_version = manifest.version;
+    }
     sendMessageToUI(type, message);
   });
   client.addListener('ProxyMessage', function onProxyMessage(type, message) {
