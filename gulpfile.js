@@ -9,7 +9,7 @@ var args = require('yargs').argv;
 var yaml = require('gulp-yaml');
 var rename = require('gulp-rename');
 var del = require('del');
-var mocha = require('gulp-mocha');
+var gulpMocha = require('gulp-mocha');
 var replace = require('gulp-replace');
 var pbjs = require('gulp-pbjs');
 var jsoncombine = require('gulp-jsoncombine');
@@ -110,7 +110,7 @@ gulp.task('copyHtml', ['buildConfig'], function () {
 
 gulp.task('test', function () {
   return gulp.src('src/**/*.spec.js', {read: false})
-    .pipe(mocha());
+    .pipe(gulpMocha());
 });
 
 gulp.task('protocolBuffers', function () {

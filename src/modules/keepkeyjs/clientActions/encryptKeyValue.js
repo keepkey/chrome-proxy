@@ -6,7 +6,7 @@ var logger = require('../../../logger.js');
 
 var client;
 var defaultOptions = {
-  addressN: [0],
+  addressN: [],
   key: '',
   value: ByteBuffer.wrap(''),
   encrypt: true,
@@ -15,9 +15,9 @@ var defaultOptions = {
 };
 
 function padToMultipleOf16(buffer) {
-  var paddingSize = 16 - (buffer.limit % 16);
+  var paddingSize = 16 - ((buffer.limit - buffer.offset) % 16);
   var padding = ByteBuffer.allocate(paddingSize).fill(0).reset();
-  buffer.resize(buffer.limit + padding.limit).append(padding, buffer.limit).reset();
+  buffer.resize(buffer.limit + padding.limit).append(padding, buffer.limit)/*.reset()*/;
   buffer.limit = buffer.limit + padding.limit;
   return buffer;
 }
@@ -44,7 +44,7 @@ var encryptKeyValue = function encryptKeyValue(args) {
         );
         return client.writeToDevice(message);
       } else {
-        return Promise.reject('device not initialized');
+        return Promise.reject('encryptKeyValue: device not initialized');
       }
     });
 };

@@ -5,14 +5,16 @@ var client;
 module.exports = function wipeDevice() {
   client = this;
 
-  var clearNodesOnSuccess = function(type, message) {
-    if (type === "Success") {
+  var message = new client.protoBuf.WipeDevice();
+  return client.writeToDevice(message)
+    .then(function(response) {
       walletNodeService.clear();
-      client.eventEmitter.off('DeviceMessage', clearNodesOnSuccess);
       featuresService.clear();
-    }
-  };
-
-  client.eventEmitter.on('DeviceMessage', clearNodesOnSuccess);
-  return client.writeToDevice(new client.protoBuf.WipeDevice());
+    })
+    .then(client.initialize)
+    .catch(function(message) {
+      if (message.code !== "Failure_ActionCancelled") {
+        return Promise.reject(message);
+      }
+    });
 };

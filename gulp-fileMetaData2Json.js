@@ -1,3 +1,5 @@
+require('buffertools').extend();
+
 var through = require('through2');
 var gutil = require('gulp-util');
 var PluginError = gutil.PluginError;
@@ -12,7 +14,7 @@ module.exports = function () {
     }
 
     if (file.isBuffer()) {
-      var versionMarkerLocation = file.contents.indexOf('VERSION');
+      var versionMarkerLocation = file._contents.indexOf('VERSION');
       if (versionMarkerLocation === -1) {
         throw 'Firmware file needs a version tag';
       }

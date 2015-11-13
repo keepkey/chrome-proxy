@@ -6,7 +6,7 @@ var logger = require('../../../logger.js');
 
 var client;
 var defaultOptions = {
-  addressN: [0],
+  addressN: [],
   key: '',
   value: '',
   encrypt: false,
@@ -36,7 +36,7 @@ var decryptKeyValue = function decryptKeyValue(args) {
         );
         return client.writeToDevice(message);
       } else {
-        return Promise.reject('device not initialized');
+        return Promise.reject('decryptKeyValue: device not initialized');
       }
     });
 };

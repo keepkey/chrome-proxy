@@ -4,8 +4,10 @@ var NodePathHelper = require('../NodePathHelper.js');
 
 var client;
 var defaultOptions = {
-  addressN: [0]
+  addressN: []
 };
+
+var getPublicKeyInProgress = false;
 
 var getPublicKey = function getPublicKey(args) {
   client = this;
@@ -14,7 +16,7 @@ var getPublicKey = function getPublicKey(args) {
 
   return featuresService.getPromise()
     .then(function (features) {
-      if (features.initialized) {
+      if (features.initialized && !getPublicKeyInProgress) {
         options.addressN = NodePathHelper.toVector(options.addressN);
 
         console.log('Normalized node path:', options.addressN);
@@ -22,9 +24,13 @@ var getPublicKey = function getPublicKey(args) {
         var message = new client.protoBuf.GetPublicKey(
           options.addressN
         );
-        return client.writeToDevice(message);
+        getPublicKeyInProgress = true;
+        return client.writeToDevice(message)
+          .then(function() {
+            getPublicKeyInProgress = false;
+          });
       } else {
-        return Promise.reject('device not initialized');
+        return Promise.reject('getPublicKey: device not initialized');
       }
     });
 };
