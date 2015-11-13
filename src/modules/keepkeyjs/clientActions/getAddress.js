@@ -4,7 +4,7 @@ var NodePathHelper = require('../NodePathHelper.js');
 
 var client;
 var defaultOptions = {
-    addressN: [0],
+    addressN: [],
     coinName: 'Bitcoin',
     showDisplay: false,
     multisig: null

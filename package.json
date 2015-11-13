@@ -58,6 +58,7 @@
     "esnext": true
   },
   "dependencies": {
+    "assert": "^1.3.0",
     "bip39": "^2.1.2",
     "bitcore": "^0.12.11",
     "bunyan": "^1.3.5",

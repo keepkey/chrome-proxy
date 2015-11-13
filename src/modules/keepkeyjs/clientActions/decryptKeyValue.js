@@ -6,7 +6,7 @@ var logger = require('../../../logger.js');
 
 var client;
 var defaultOptions = {
-  addressN: [0],
+  addressN: [],
   key: '',
   value: '',
   encrypt: false,

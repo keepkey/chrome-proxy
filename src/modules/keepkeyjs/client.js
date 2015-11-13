@@ -119,6 +119,7 @@ function clientMaker(transport, protoBuf) {
   };
 
   client.onFeatures = function (message) {
+    //TODO Factor featuresService out of client. It doesn't make sense for CLI.
     featuresService.setValue(message);
     walletNodeService.reloadBalances();
     return message;
@@ -133,6 +134,7 @@ function clientMaker(transport, protoBuf) {
   };
 
   client.onPublicKey = function (publicKeyObject) {
+    //TODO Factor walletNodeService out of client. It doesn't make sense for CLI.
     walletNodeService.registerPublicKey(publicKeyObject);
   };
 

@@ -40,6 +40,18 @@ function readNodePath(addressN) {
   return convertPrime(addressN);
 }
 
+function toString(nodePathVector) {
+  var converted = [];
+  nodePathVector.forEach(function(it) {
+    if (it & 0x80000000) {
+      converted.push((it & 0x7fffffff) + '\'');
+    } else {
+      converted.push(it);
+    }
+  });
+  return 'm/' + converted.join('/');
+}
+
 function joinPaths() {
   if (_.indexOf(arguments, undefined) !== -1) {
     return undefined;
@@ -51,5 +63,6 @@ function joinPaths() {
 
 module.exports = {
   toVector: readNodePath,
-  joinPaths: joinPaths
+  joinPaths: joinPaths,
+  toString: toString
 };
