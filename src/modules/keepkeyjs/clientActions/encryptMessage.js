@@ -31,7 +31,7 @@ var encryptMessage = function encryptMessage(args) {
         );
         return client.writeToDevice(message);
       } else {
-        return Promise.reject('device not initialized');
+        return Promise.reject('encryptMessage: device not initialized');
       }
     });
 };

@@ -1,0 +1,501 @@
+[
+  {
+    "messageName": "Initialize",
+    "validMode": "running",
+    "sender": "host",
+    "messageType": "request",
+    "resolveMessage": "Features",
+    "userInteractionRequired": false
+  },
+  {
+    "messageName": "GetFeatures",
+    "validMode": "running",
+    "sender": "host",
+    "messageType": "request",
+    "resolveMessage": "Features",
+    "userInteractionRequired": false
+  },
+  {
+    "messageName": "Features",
+    "validMode": "running",
+    "sender": "device",
+    "messageType": "response",
+    "userInteractionRequired": false
+  },
+  {
+    "messageName": "ClearSession",
+    "validMode": "running",
+    "sender": "host",
+    "messageType": "request",
+    "resolveMessage": "Success",
+    "userInteractionRequired": false
+  },
+  {
+    "messageName": "ApplySettings",
+    "validMode": "running",
+    "sender": "host",
+    "messageType": "request",
+    "resolveMessage": "Success",
+    "rejectMessage": "Failure",
+    "interstitialMessages": [
+      "ButtonRequest",
+      "PinMatrixRequest"
+    ],
+    "userInteractionRequired": true
+  },
+  {
+    "messageName": "ChangePin",
+    "validMode": "running",
+    "sender": "host",
+    "messageType": "request",
+    "resolveMessage": "Success",
+    "rejectMessage": "Failure",
+    "interstitialMessages": [
+      "ButtonRequest",
+      "PinMatrixRequest"
+    ],
+    "userInteractionRequired": true
+  },
+  {
+    "messageName": "Ping",
+    "validMode": "running",
+    "sender": "host",
+    "messageType": "request",
+    "resolveMessage": "Success",
+    "userInteractionRequired": false
+  },
+  {
+    "messageName": "Success",
+    "validMode": "running",
+    "sender": "device",
+    "messageType": "response",
+    "userInteractionRequired": false
+  },
+  {
+    "messageName": "Failure",
+    "validMode": "running",
+    "sender": "device",
+    "messageType": "response",
+    "userInteractionRequired": false
+  },
+  {
+    "messageName": "ButtonRequest",
+    "validMode": "running",
+    "sender": "device",
+    "messageType": "request",
+    "resolveMessage": "ButtonAck",
+    "userInteractionRequired": false
+  },
+  {
+    "messageName": "ButtonAck",
+    "validMode": "running",
+    "sender": "host",
+    "messageType": "response",
+    "userInteractionRequired": false
+  },
+  {
+    "messageName": "PinMatrixRequest",
+    "validMode": "running",
+    "sender": "device",
+    "messageType": "request",
+    "resolveMessage": "PinMatrixAck",
+    "userInteractionRequired": true
+  },
+  {
+    "messageName": "PinMatrixAck",
+    "validMode": "running",
+    "sender": "host",
+    "messageType": "response",
+    "userInteractionRequired": false
+  },
+  {
+    "messageName": "Cancel",
+    "validMode": "running",
+    "sender": "host",
+    "messageType": "request",
+    "userInteractionRequired": false
+  },
+  {
+    "messageName": "PassphraseRequest",
+    "validMode": "running",
+    "sender": "device",
+    "messageType": "request",
+    "resolveMessage": "PassphraseAck",
+    "userInteractionRequired": true
+  },
+  {
+    "messageName": "PassphraseAck",
+    "validMode": "running",
+    "sender": "host",
+    "messageType": "response",
+    "userInteractionRequired": false
+  },
+  {
+    "messageName": "GetEntropy",
+    "validMode": "running",
+    "sender": "host",
+    "messageType": "request",
+    "resolveMessage": "Entropy",
+    "rejectMessage": "Failure",
+    "interstitialMessages": [
+      "ButtonRequest"
+    ],
+    "userInteractionRequired": false
+  },
+  {
+    "messageName": "Entropy",
+    "validMode": "running",
+    "sender": "device",
+    "messageType": "response",
+    "userInteractionRequired": false
+  },
+  {
+    "messageName": "GetPublicKey",
+    "validMode": "running",
+    "sender": "host",
+    "messageType": "request",
+    "resolveMessage": "PublicKey",
+    "rejectMessage": "Failure",
+    "interstitialMessages": [
+      "PassphraseRequest",
+      "PinMatrixRequest"
+    ],
+    "userInteractionRequired": true
+  },
+  {
+    "messageName": "PublicKey",
+    "validMode": "running",
+    "sender": "device",
+    "messageType": "response",
+    "userInteractionRequired": false
+  },
+  {
+    "messageName": "GetAddress",
+    "validMode": "running",
+    "sender": "host",
+    "messageType": "request",
+    "resolveMessage": "Address",
+    "rejectMessage": "Failure",
+    "interstitialMessages": [
+      "ButtonRequest",
+      "PinMatrixRequest",
+      "PassphraseRequest"
+    ],
+    "userInteractionRequired": true
+  },
+  {
+    "messageName": "Address",
+    "validMode": "running",
+    "sender": "device",
+    "messageType": "response",
+    "userInteractionRequired": false
+  },
+  {
+    "messageName": "WipeDevice",
+    "validMode": "running",
+    "sender": "host",
+    "messageType": "request",
+    "resolveMessage": "Success",
+    "rejectMessage": "Failure",
+    "interstitialMessages": [
+      "ButtonRequest"
+    ],
+    "userInteractionRequired": false
+  },
+  {
+    "messageName": "LoadDevice",
+    "validMode": "running",
+    "sender": "host",
+    "messageType": "request",
+    "resolveMessage": "Success",
+    "rejectMessage": "Failure",
+    "interstitialMessages": [
+      "ButtonRequest",
+      "PassphraseRequest"
+    ],
+    "userInteractionRequired": true
+  },
+  {
+    "messageName": "ResetDevice",
+    "validMode": "running",
+    "sender": "host",
+    "messageType": "request",
+    "resolveMessage": "Success",
+    "rejectMessage": "Failure",
+    "interstitialMessages": [
+      "EntropyRequest",
+      "PinMatrixRequest",
+      "ButtonRequest",
+      "PassphraseRequest"
+    ],
+    "userInteractionRequired": true
+  },
+  {
+    "messageName": "EntropyRequest",
+    "validMode": "running",
+    "sender": "device",
+    "messageType": "request",
+    "resolveMessage": "EntropyAck",
+    "userInteractionRequired": false
+  },
+  {
+    "messageName": "EntropyAck",
+    "validMode": "running",
+    "sender": "host",
+    "messageType": "response",
+    "userInteractionRequired": false
+  },
+  {
+    "messageName": "RecoveryDevice",
+    "validMode": "running",
+    "sender": "host",
+    "messageType": "request",
+    "resolveMessage": "Success",
+    "rejectMessage": "Failure",
+    "interstitialMessages": [
+      "WordRequest",
+      "PinMatrixRequest",
+      "CharacterRequest"
+    ],
+    "userInteractionRequired": true
+  },
+  {
+    "messageName": "WordRequest",
+    "validMode": "running",
+    "sender": "device",
+    "messageType": "request",
+    "resolveMessage": "WordAck",
+    "userInteractionRequired": false
+  },
+  {
+    "messageName": "WordAck",
+    "validMode": "running",
+    "sender": "host",
+    "messageType": "response",
+    "userInteractionRequired": true
+  },
+  {
+    "messageName": "CharacterRequest",
+    "validMode": "running",
+    "sender": "device",
+    "messageType": "request",
+    "resolveMessage": "CharacterAck",
+    "userInteractionRequired": false
+  },
+  {
+    "messageName": "CharacterAck",
+    "validMode": "running",
+    "sender": "host",
+    "messageType": "response",
+    "userInteractionRequired": true
+  },
+  {
+    "messageName": "SignMessage",
+    "validMode": "running",
+    "sender": "host",
+    "messageType": "request",
+    "resolveMessage": "MessageSignature",
+    "rejectMessage": "Failure",
+    "userInteractionRequired": false
+  },
+  {
+    "messageName": "VerifyMessage",
+    "validMode": "running",
+    "sender": "host",
+    "messageType": "request",
+    "resolveMessage": "Success",
+    "rejectMessage": "Failure",
+    "userInteractionRequired": false
+  },
+  {
+    "messageName": "MessageSignature",
+    "validMode": "running",
+    "sender": "device",
+    "messageType": "response",
+    "userInteractionRequired": false
+  },
+  {
+    "messageName": "EncryptMessage",
+    "validMode": "running",
+    "sender": "host",
+    "messageType": "request",
+    "resolveMessage": "EncryptedMessage",
+    "rejectMessage": "Failure",
+    "userInteractionRequired": false
+  },
+  {
+    "messageName": "EncryptedMessage",
+    "validMode": "running",
+    "sender": "device",
+    "messageType": "response",
+    "userInteractionRequired": false
+  },
+  {
+    "messageName": "DecryptMessage",
+    "validMode": "running",
+    "sender": "host",
+    "messageType": "request",
+    "resolveMessage": "Success",
+    "rejectMessage": "Failure",
+    "userInteractionRequired": false
+  },
+  {
+    "messageName": "DecryptedMessage",
+    "validMode": "running",
+    "sender": "device",
+    "messageType": "response",
+    "userInteractionRequired": false
+  },
+  {
+    "messageName": "CipherKeyValue",
+    "validMode": "running",
+    "sender": "host",
+    "messageType": "request",
+    "resolveMessage": "CipheredKeyValue",
+    "rejectMessage": "Failure",
+    "userInteractionRequired": false
+  },
+  {
+    "messageName": "CipheredKeyValue",
+    "validMode": "running",
+    "sender": "device",
+    "messageType": "response",
+    "userInteractionRequired": false
+  },
+  {
+    "messageName": "EstimateTxSize",
+    "validMode": "running",
+    "sender": "host",
+    "messageType": "request",
+    "resolveMessage": "TxSize",
+    "rejectMessage": "Failure",
+    "userInteractionRequired": false
+  },
+  {
+    "messageName": "TxSize",
+    "validMode": "running",
+    "sender": "device",
+    "messageType": "response",
+    "userInteractionRequired": false
+  },
+  {
+    "messageName": "SignTx",
+    "validMode": "running",
+    "sender": "host",
+    "messageType": "request",
+    "resolveMessage": "TxRequest_TXFINISHED",
+    "rejectMessage": "Failure",
+    "interstitialMessages": [
+      "PassphraseRequest",
+      "PinMatrixRequest",
+      "ButtonRequest",
+      "TxRequest_TXINPUT",
+      "TxRequest_TXOUTPUT",
+      "TxRequest_TXMETA"
+    ],
+    "userInteractionRequired": true
+  },
+  {
+    "messageName": "SimpleSignTx",
+    "validMode": "running",
+    "sender": "host",
+    "messageType": "request",
+    "resolveMessage": "TxRequest",
+    "rejectMessage": "Failure",
+    "interstitialMessages": [
+      "PassphraseRequest",
+      "PinMatrixRequest"
+    ],
+    "userInteractionRequired": true
+  },
+  {
+    "messageName": "TxRequest",
+    "validMode": "running",
+    "sender": "device",
+    "messageType": "request",
+    "resolveMessage": "TxAck",
+    "userInteractionRequired": false
+  },
+  {
+    "messageName": "TxAck",
+    "validMode": "running",
+    "sender": "host",
+    "messageType": "response",
+    "userInteractionRequired": false
+  },
+  {
+    "messageName": "SignIdentity",
+    "validMode": "running",
+    "sender": "host",
+    "messageType": "request",
+    "resolveMessage": "SignedIdentity",
+    "rejectMessage": "Failure",
+    "userInteractionRequired": false
+  },
+  {
+    "messageName": "SignedIdentity",
+    "validMode": "running",
+    "sender": "device",
+    "messageType": "response",
+    "userInteractionRequired": false
+  },
+  {
+    "messageName": "FirmwareErase",
+    "validMode": "bootLoader",
+    "sender": "host",
+    "messageType": "request",
+    "resolveMessage": "Success",
+    "rejectMessage": "Failure",
+    "userInteractionRequired": false
+  },
+  {
+    "messageName": "FirmwareUpload",
+    "validMode": "bootLoader",
+    "sender": "host",
+    "messageType": "request",
+    "resolveMessage": "Success",
+    "rejectMessage": "Failure",
+    "userInteractionRequired": false
+  },
+  {
+    "messageName": "DebugLinkDecision",
+    "validMode": "debug",
+    "sender": "host",
+    "messageType": "request",
+    "resolveMessage": "Success",
+    "userInteractionRequired": false
+  },
+  {
+    "messageName": "DebugLinkGetState",
+    "validMode": "debug",
+    "sender": "host",
+    "messageType": "request",
+    "resolveMessage": "DebugLinkState",
+    "userInteractionRequired": false
+  },
+  {
+    "messageName": "DebugLinkState",
+    "validMode": "debug",
+    "sender": "device",
+    "messageType": "response",
+    "userInteractionRequired": false
+  },
+  {
+    "messageName": "DebugLinkStop",
+    "validMode": "debug",
+    "sender": "host",
+    "messageType": "request",
+    "userInteractionRequired": false
+  },
+  {
+    "messageName": "DebugLinkLog",
+    "validMode": "debug",
+    "sender": "device",
+    "messageType": "request",
+    "userInteractionRequired": false
+  },
+  {
+    "messageName": "DebugLinkFillConfig",
+    "userInteractionRequired": false
+  }
+]

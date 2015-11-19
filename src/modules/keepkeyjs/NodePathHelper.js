@@ -41,7 +41,7 @@ function readNodePath(addressN) {
 }
 
 function toString(nodePathVector) {
-  var converted = [];
+  var converted = ['M'];
   nodePathVector.forEach(function(it) {
     if (it & 0x80000000) {
       converted.push((it & 0x7fffffff) + '\'');
@@ -49,7 +49,7 @@ function toString(nodePathVector) {
       converted.push(it);
     }
   });
-  return 'm/' + converted.join('/');
+  return converted.join('/');
 }
 
 function joinPaths() {

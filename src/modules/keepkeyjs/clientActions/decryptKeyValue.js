@@ -36,7 +36,7 @@ var decryptKeyValue = function decryptKeyValue(args) {
         );
         return client.writeToDevice(message);
       } else {
-        return Promise.reject('device not initialized');
+        return Promise.reject('decryptKeyValue: device not initialized');
       }
     });
 };

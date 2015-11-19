@@ -44,7 +44,7 @@ var encryptKeyValue = function encryptKeyValue(args) {
         );
         return client.writeToDevice(message);
       } else {
-        return Promise.reject('device not initialized');
+        return Promise.reject('encryptKeyValue: device not initialized');
       }
     });
 };

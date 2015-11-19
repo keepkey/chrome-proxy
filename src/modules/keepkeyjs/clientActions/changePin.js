@@ -13,5 +13,10 @@ module.exports = function changePin(args) {
       options.remove
   );
 
-  return client.writeToDevice(message);
+  return client.writeToDevice(message)
+    .catch(function(message) {
+      if (message.code !== "Failure_ActionCancelled") {
+        return Promise.reject(message);
+      }
+    });
 };

@@ -29,7 +29,7 @@ var signMessage = function signMessage(args) {
         );
         return client.writeToDevice(message);
       } else {
-        return Promise.reject('device not initialized');
+        return Promise.reject('signMessage: device not initialized');
       }
     });
 };

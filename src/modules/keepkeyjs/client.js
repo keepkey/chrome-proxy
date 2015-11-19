@@ -21,17 +21,19 @@
  */
 var ByteBuffer = require('bytebuffer');
 var EventEmitter2 = require('eventemitter2').EventEmitter2;
-var hydrate = require('./hydrate.js');
-var featuresService = require('./featuresService.js');
 var Long = require('long');
+var assert = require('assert');
+var _ = require('lodash');
+
+var hydrate = require('./hydrate.js');
+var buffer2Hex = require('./buffer2Hex.js');
 var walletNodeService = require('./services/walletNodeService.js');
 var config = require('../../../dist/config.json');
-
-var _ = require('lodash');
+var DeviceMessenger = require('./StatefulDeviceMessenger.js');
+var logger = require('../../logger.js');
 
 const KEEPKEY = 'KEEPKEY';
 var DEVICES = require('./transport.js').DEVICES;
-var logger = require('../../logger.js');
 
 module.exports.KEEPKEY = KEEPKEY;
 
@@ -40,48 +42,25 @@ var clients = {},    // client pool
 
 clientTypes[KEEPKEY] = require('./keepkey/client.js');
 
-function buffer2Hex(k, v) {
-  if (v && v.buffer) {
-    // NOTE: v.buffer is type Buffer in node and ArrayBuffer in chrome
-    if (v.buffer instanceof Buffer) {
-      return v.toHex();
-    }
-
-    var hexstring = '';
-    for (var i = v.offset; i < v.limit; i++) {
-      if (v.view[i] < 16) {
-        hexstring += 0;
-      }
-      hexstring += v.view[i].toString(16);
-    }
-    return hexstring;
-  } else if (v && !_.isUndefined(v.low) && !_.isUndefined(v.high) && !_.isUndefined(v.unsigned)) {
-    return (new Long(v.low, v.high, v.unsigned)).toString();
-  }
-  return v;
-}
-
 function clientMaker(transport, protoBuf) {
   logger.debug('Initializing client');
 
   var client = {};
   var deviceInUse = false;
 
+  client.deviceMessenger = new DeviceMessenger(transport);
+
   client.eventEmitter = new EventEmitter2();
   client.addListener = client.eventEmitter.addListener.bind(client.eventEmitter);
-  client.writeToDevice = function (message) {
-    logger.info('proxy --> device: [%s]\n', message.$type.name, JSON.stringify(message, buffer2Hex, config.jsonIndent));
-    return transport.write.apply(transport, arguments);
-  };
+
+  client.writeToDevice = client.deviceMessenger.send.bind(client.deviceMessenger);
 
   client.protoBuf = protoBuf;
 
   client.readFirmwareFile = require('./chrome/chromeReadFirmwareFile.js');
   client.crypto = require('./chrome/chromeCrypto.js');
 
-  client.initialize = function () {
-    return client.writeToDevice(new client.protoBuf.Initialize());
-  };
+  client.initialize = require('./clientActions/initialize.js').bind(client);
   client.cancel = require('./clientActions/cancel.js').bind(client);
   client.wipeDevice = require('./clientActions/wipeDevice.js').bind(client);
   client.resetDevice = require('./clientActions/resetDevice.js').bind(client);
@@ -118,13 +97,6 @@ function clientMaker(transport, protoBuf) {
     return client.writeToDevice(entropy);
   };
 
-  client.onFeatures = function (message) {
-    //TODO Factor featuresService out of client. It doesn't make sense for CLI.
-    featuresService.setValue(message);
-    walletNodeService.reloadBalances();
-    return message;
-  };
-
   client.onSuccess = function (message) {
     if (message.message.toLowerCase() === "firmware erased") {
       return client.firmwareUpload();
@@ -145,11 +117,16 @@ function clientMaker(transport, protoBuf) {
       transport.read()
         .then(function dispatchIncomingMessage(message) {
           deviceInUse = false;
-          logger.info('device --> proxy: [%s]\n', message.$type.name, JSON.stringify(message, buffer2Hex, config.jsonIndent));
+          var hydratedMessage = hydrate(message);
+          logger.info('device --> proxy: [%s]\n', message.$type.name,
+            JSON.stringify(hydratedMessage, buffer2Hex, config.jsonIndent));
           if (message) {
+            client.deviceMessenger.receive.call(client.deviceMessenger, message);
 
-            client.eventEmitter.emit('DeviceMessage', message.$type.name, hydrate(message));
+            client.eventEmitter.emit('DeviceMessage', message.$type.name,
+              hydratedMessage);
 
+            // TODO This should probably be removed
             var handler = 'on' + message.$type.name;
             if (client.hasOwnProperty(handler)) {
               return client[handler](message);
@@ -168,10 +145,7 @@ function clientMaker(transport, protoBuf) {
     clearInterval(client.devicePollingInterval);
   };
 
-  client.initialize()
-    .catch(function () {
-      logger.error('failure while initializing', arguments);
-    });
+  client.initialize();
 
   return client;
 }

@@ -4,27 +4,32 @@ var NodePathHelper = require('../NodePathHelper.js');
 
 var client;
 var defaultOptions = {
-    addressN: [],
-    coinName: 'Bitcoin',
-    showDisplay: false,
-    multisig: null
+  addressN: [],
+  coinName: 'Bitcoin',
+  showDisplay: false,
+  multisig: null
 };
 
 module.exports = function getAddress(args) {
-    client = this;
+  client = this;
 
-    var options = _.extend({}, defaultOptions, args);
+  var options = _.extend({}, defaultOptions, args);
 
-    return featuresService.getPromise()
-        .then(function (features) {
-            options.addressN = NodePathHelper.toVector(options.addressN);
+  return featuresService.getPromise()
+    .then(function (features) {
+      options.addressN = NodePathHelper.toVector(options.addressN);
 
-            var message = new client.protoBuf.GetAddress(
-                options.addressN,
-                options.coinName,
-                options.showDisplay
-            );
-            return client.writeToDevice(message);
-        });
+      var message = new client.protoBuf.GetAddress(
+        options.addressN,
+        options.coinName,
+        options.showDisplay
+      );
+      return client.writeToDevice(message);
+    })
+    .catch(function (message) {
+      if (message.code !== "Failure_ActionCancelled") {
+        return Promise.reject(message);
+      }
+    });
 };
 

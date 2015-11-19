@@ -17,7 +17,7 @@ function getWalletServicePromise() {
         .then(function (features) {
           if (!features.device_id || !features.initialized) {
             walletServicePromise = undefined;
-            reject('device not initialized');
+            reject('getWalletServicePromise: device not initialized');
           } else {
             var promises = [];
             _.each(nodes, function (node) {

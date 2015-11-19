@@ -201,7 +201,6 @@ function hexifyBuffers(obj) {
 
 function sendMessageToUI(type, message) {
   var messageToSend = hexifyBuffers(message);
-  console.log(messageToSend);
   logger.debug('proxy --> UI: [%s] %j', type, message);
   chrome.runtime.sendMessage(
     keepKeyWalletId,

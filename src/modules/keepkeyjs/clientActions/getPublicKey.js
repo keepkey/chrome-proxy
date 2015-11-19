@@ -24,7 +24,7 @@ var getPublicKey = function getPublicKey(args) {
         );
         return client.writeToDevice(message);
       } else {
-        return Promise.reject('device not initialized');
+        return Promise.reject('getPublicKey: device not initialized');
       }
     });
 };
