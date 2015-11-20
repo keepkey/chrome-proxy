@@ -9,6 +9,9 @@ module.exports = function buffer2Hex(k, v) {
     }
 
     var hexstring = '';
+    if (v.limit > 1000) {
+      return '<long buffer suppressed>';
+    }
     for (var i = v.offset; i < v.limit; i++) {
       if (v.view[i] < 16) {
         hexstring += 0;

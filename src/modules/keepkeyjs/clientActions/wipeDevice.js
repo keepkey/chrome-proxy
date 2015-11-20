@@ -11,6 +11,7 @@ module.exports = function wipeDevice() {
       walletNodeService.clear();
       featuresService.clear();
     })
+    .then(client.initialize)
     .catch(function(message) {
       if (message.code !== "Failure_ActionCancelled") {
         return Promise.reject(message);

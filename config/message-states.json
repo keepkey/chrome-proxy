@@ -446,6 +446,9 @@
     "messageType": "request",
     "resolveMessage": "Success",
     "rejectMessage": "Failure",
+    "interstitialMessages": [
+      "ButtonRequest"
+    ],
     "userInteractionRequired": false
   },
   {

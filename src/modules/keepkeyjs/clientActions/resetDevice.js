@@ -32,6 +32,7 @@ module.exports = function resetDevice(args) {
         );
 
         return client.writeToDevice(message)
+          .then(client.initialize)
           .catch(function (message) {
             if (_.indexOf(failureCodes, message.code) === -1) {
               return Promise.reject(message);

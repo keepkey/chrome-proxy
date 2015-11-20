@@ -12,6 +12,7 @@ function StatefulDeviceMessenger(transport) {
 }
 
 StatefulDeviceMessenger.prototype.send = function send(message) {
+  //TODO Don't send messages when the device is in the wrong mode
   var self = this;
 
   var messageType = message.$type.name;

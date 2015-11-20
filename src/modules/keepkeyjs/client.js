@@ -68,7 +68,7 @@ function clientMaker(transport, protoBuf) {
   client.pinMatrixAck = require('./clientActions/pinMatrixAck.js').bind(client);
   client.wordAck = require('./clientActions/wordAck.js').bind(client);
   client.characterAck = require('./clientActions/characterAck.js').bind(client);
-  client.firmwareUpdate = require('./clientActions/firmwareErase.js').bind(client);
+  client.firmwareUpdate = require('./clientActions/firmwareUpload.js').bind(client);
   client.firmwareUpload = require('./clientActions/firmwareUpload.js').bind(client);
   client.getAddress = require('./clientActions/getAddress.js').bind(client);
   client.getPublicKey = require('./clientActions/getPublicKey.js').bind(client);
@@ -83,6 +83,7 @@ function clientMaker(transport, protoBuf) {
   var transactionSigner = require('./clientActions/transactionSigner.js');
   client.requestTransactionSignature = transactionSigner
     .requestTransactionSignature.bind(client);
+
   client.onTxRequest = function (message) {
     transactionSigner.transactionRequestHandler(hydrate(message));
   };
@@ -92,17 +93,8 @@ function clientMaker(transport, protoBuf) {
   };
 
   client.onEntropyRequest = function (message) {
-    var localEntropy = client.crypto.getLocalEntropy(32);
-    var entropy = new client.protoBuf.EntropyAck(localEntropy);
-    return client.writeToDevice(entropy);
-  };
-
-  client.onSuccess = function (message) {
-    if (message.message.toLowerCase() === "firmware erased") {
-      return client.firmwareUpload();
-    } else {
-      return client.initialize();
-    }
+    return client.writeToDevice(
+      new client.protoBuf.EntropyAck(client.crypto.getLocalEntropy(32)));
   };
 
   client.onPublicKey = function (publicKeyObject) {
