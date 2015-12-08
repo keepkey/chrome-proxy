@@ -236,6 +236,8 @@ function getTransactions(name, decorator) {
         Array.prototype.push.apply(transaction.outputs, data.outputs);
         if (isTransactionComplete(transaction)) {
           return downloadLargeTransaction(transaction);
+        } else {
+          return transaction;
         }
       });
   }
