@@ -243,7 +243,6 @@ function getTransactions(name, decorator) {
   }
 
   function mergeNewTransactions(master, additions) {
-    var promise = Promise.resolve();
     _.each(additions, function (transaction) {
       if (transaction.inputs.length === 1 && transaction.inputs[0].output_index === -1) {
         transaction.inputs[0].addresses = ['<new>'];
@@ -252,16 +251,24 @@ function getTransactions(name, decorator) {
         master.push(transaction);
       }
 
-      if (isTransactionComplete(transaction)) {
-        promise = promise.then(function () {
-          return downloadLargeTransaction(transaction);
-        });
-      }
-      promise = promise.then(function () {
-        console.assert(transaction.vin_sz === transaction.inputs.length, 'vin_sz should match the number of inputs');
-        console.assert(transaction.vout_sz === transaction.outputs.length, 'vout_sz should match the number of outputs');
-      });
     });
+  }
+
+  function finishLoadingIncompleteTransactions(transactionList) {
+    var promise = Promise.resolve();
+    if (transactionList) {
+      _.each(transactionList, function (transaction) {
+        if (isTransactionComplete(transaction)) {
+          promise = promise.then(function () {
+            return downloadLargeTransaction(transaction);
+          });
+        }
+        promise = promise.then(function () {
+          console.assert(transaction.vin_sz === transaction.inputs.length, 'vin_sz should match the number of inputs');
+          console.assert(transaction.vout_sz === transaction.outputs.length, 'vout_sz should match the number of outputs');
+        });
+      });
+    }
     return promise;
   }
 
@@ -283,23 +290,20 @@ function getTransactions(name, decorator) {
         return data;
       })
       .then(function (data) {
-        if (!wallet.txrefs && !wallet.unconfirmed_txrefs && !wallet.txs) {
-          _.extend(wallet, data);
-          return data;
-        } else {
-          return mergeNewTransactions(wallet.txrefs, data.txrefs)
-            .then(function () {
-              return mergeNewTransactions(wallet.unconfirmed_txrefs, data.unconfirmed_txrefs);
-            })
-            .then(function () {
-              return mergeNewTransactions(wallet.txs, data.txs);
-            })
-            .then(function () {
+          return finishLoadingIncompleteTransactions(data.txs)
+            .then(function() {
               return data;
             });
-        }
       })
-      .then(function (data) {
+      .then(function(data) {
+        if (!wallet.txrefs && !wallet.unconfirmed_txrefs && !wallet.txs) {
+          _.extend(wallet, data);
+        } else {
+          mergeNewTransactions(wallet.txrefs, data.txrefs);
+          mergeNewTransactions(wallet.unconfirmed_txrefs, data.unconfirmed_txrefs);
+          mergeNewTransactions(wallet.txs, data.txs);
+        }
+
         if (data.hasMore) {
           var resumeHeight = getResumeHeight.apply(this, decorator.getTransactionCollections(wallet));
           return getMoreTransactions(resolve, wallet, resumeHeight);
