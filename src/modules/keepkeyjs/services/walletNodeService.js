@@ -110,7 +110,7 @@ function loadUnspentTransactionSummaries(nodeId) {
         if (!it.hdNode) {
           it.hdNode = getHdNodeForAddress(node, it.address);
         }
-        if (!it.spent) {
+        if (!it.spent && it.tx_output_n >= 0) {
           data.highConfidenceBalance += it.value;
         }
       });

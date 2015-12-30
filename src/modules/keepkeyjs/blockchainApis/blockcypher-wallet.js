@@ -184,6 +184,40 @@ var getSummaryDecorator = {
   }
 };
 
+/* static */
+function downloadLargeTransaction(transaction) {
+  var startInputIndex = transaction.inputs.length;
+  var startOutputIndex = transaction.outputs.length;
+  return httpClient.get(getPartialTransactionUrl(transaction.hash, startInputIndex, startOutputIndex))
+    .then(function (data) {
+      Array.prototype.push.apply(transaction.inputs, data.inputs);
+      Array.prototype.push.apply(transaction.outputs, data.outputs);
+      if (isTransactionIncomplete(transaction)) {
+        return downloadLargeTransaction(transaction);
+      } else {
+        return transaction;
+      }
+    });
+}
+
+/* static */
+function isTransactionIncomplete(transaction) {
+  return transaction.vin_sz > transaction.inputs.length ||
+    transaction.vout_sz > transaction.outputs.length;
+}
+
+/* static */
+function getPartialTransactionUrl(hash, inputStartIndex, outputStartIndex) {
+  return [
+    [API_ROOT, TX_PATH, hash].join('/'),
+    [
+      API_TOKEN_PARAMETER,
+      urlParameter('limit', '500'),
+      urlParameter('instart', inputStartIndex),
+      urlParameter('outstart', outputStartIndex)
+    ].join('&')
+  ].join('?');
+}
 
 function getTransactions(name, decorator) {
   function selectResumeHeightFromList(uniqList) {
@@ -210,38 +244,6 @@ function getTransactions(name, decorator) {
     return _.find(list, decorator.getTransactionLocator(transaction));
   }
 
-  function isTransactionComplete(transaction) {
-    return transaction.vin_sz > transaction.inputs.length ||
-      transaction.vout_sz > transaction.outputs.length;
-  }
-
-  function getPartialTransactionUrl(hash, inputStartIndex, outputStartIndex) {
-    return [
-      [API_ROOT, TX_PATH, hash].join('/'),
-      [
-        API_TOKEN_PARAMETER,
-        urlParameter('limit', '500'),
-        urlParameter('instart', inputStartIndex),
-        urlParameter('outstart', outputStartIndex)
-      ].join('&')
-    ].join('?');
-  }
-
-  function downloadLargeTransaction(transaction) {
-    var startInputIndex = transaction.inputs.length;
-    var startOutputIndex = transaction.outputs.length;
-    return httpClient.get(getPartialTransactionUrl(transaction.hash, startInputIndex, startOutputIndex))
-      .then(function (data) {
-        Array.prototype.push.apply(transaction.inputs, data.inputs);
-        Array.prototype.push.apply(transaction.outputs, data.outputs);
-        if (isTransactionComplete(transaction)) {
-          return downloadLargeTransaction(transaction);
-        } else {
-          return transaction;
-        }
-      });
-  }
-
   function mergeNewTransactions(master, additions) {
     _.each(additions, function (transaction) {
       if (transaction.inputs.length === 1 && transaction.inputs[0].output_index === -1) {
@@ -258,7 +260,7 @@ function getTransactions(name, decorator) {
     var promise = Promise.resolve();
     if (transactionList) {
       _.each(transactionList, function (transaction) {
-        if (isTransactionComplete(transaction)) {
+        if (isTransactionIncomplete(transaction)) {
           promise = promise.then(function () {
             return downloadLargeTransaction(transaction);
           });
@@ -438,7 +440,13 @@ function getTransactionUrl(hash) {
 }
 
 function getTransaction(transactionHash) {
-  return httpClient.get(getTransactionUrl(transactionHash));
+  return httpClient.get(getTransactionUrl(transactionHash))
+    .then(function(transaction) {
+      if (isTransactionIncomplete(transaction)) {
+        return downloadLargeTransaction(transaction);
+      }
+      return transaction;
+    });
 }
 
 function sendRawTransactionUrl() {
