@@ -1,0 +1,10 @@
+{
+  "environment": "recover",
+  "jsonIndent": 2,
+  "keepkeyProxy": {
+    "applicationId": "laniobkjpngeaccbcgligaeoddjinaoi"
+  },
+  "keepkeyWallet": {
+    "applicationId": "jneepkpmicemgmcgaolhmijbakonfbil"
+  }
+}

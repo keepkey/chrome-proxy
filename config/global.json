@@ -4,8 +4,8 @@
     "acceptableDelta": 0.001
   },
   "defaultAccounts": [{
-    "hdNode": "m/44'/0'/0'",
-    "nodePath": [2147483692, 2147483648, 2147483648],
+    "hdNode": "m/44'/0'/0",
+    "nodePath": [2147483692, 2147483648, 0],
     "wallet": {}
   }],
   "cliLogLevel": "warn",

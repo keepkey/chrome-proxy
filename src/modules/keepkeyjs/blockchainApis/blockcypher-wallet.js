@@ -419,7 +419,7 @@ function translateToLocalFormat(wallet) {
   var returnValue = _.extend({}, wallet);
 
   returnValue.id = 0;
-  returnValue.hdNode = 'm/44\'/0\'/' + returnValue.id + '\'';
+  returnValue.hdNode = 'm/44\'/0\'/' + returnValue.id;
   returnValue.xpub = wallet.extended_public_key;
 
   delete returnValue.extended_public_key;

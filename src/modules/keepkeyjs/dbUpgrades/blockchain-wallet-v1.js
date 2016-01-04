@@ -43,10 +43,10 @@ module.exports = function(event, db, tx) {
             .objectStore(NODES_STORE_NAME);
 
         var defaultWallet = {
-            hdNode: "m/44'/0'/0'",
+            hdNode: "m/44'/0'/0",
             id: 0,
             name: "My Wallet",
-            nodePath: [2147483692, 2147483648, 2147483648]
+            nodePath: [2147483692, 2147483648, 0]
         };
         walletNodeObjectStore.add(defaultWallet);
     };
