@@ -88,7 +88,7 @@ function verifyManufacturerPrefixInFirmwareImage(payload) {
         if (firmwareManufacturerTag === 'KPKY') {
             resolve(payload);
         } else {
-            reject('Firmware image is from an unknown manufacturer. Unable to upload to the device.');
+            reject('Firmware image is from an unknown manufacturer. Unable to upload to the device: ' + firmwareManufacturerTag);
         }
     });
 }

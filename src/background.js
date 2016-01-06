@@ -35,6 +35,8 @@ var walletNodeService = require('./modules/keepkeyjs/services/walletNodeService.
 var feeService = require('./modules/keepkeyjs/services/feeService.js');
 var logger = require('./logger.js');
 var ByteBuffer = require('ByteBuffer');
+var firmwareFileMetaData = require('../tmp/keepkey_main.js');
+
 logger.levels(0, 'info');
 
 var keepKeyWalletId = config.keepkeyWallet.applicationId;
@@ -223,6 +225,7 @@ function createClientForDevice(deviceTransport) {
   client.addListener('DeviceMessage', function onDeviceMessage(type, message) {
     if (type === "Features") {
       message.proxy_version = manifest.version;
+      message.available_firmware_version = firmwareFileMetaData.version;
     }
     sendMessageToUI(type, message);
   });
