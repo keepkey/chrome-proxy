@@ -27,7 +27,6 @@
     "gulp-yaml": "^0.2.4",
     "gulp-zip": "^3.0.2",
     "jshint-stylish": "^2.0.1",
-    "jspack": "0.0.4",
     "mocha": "^2.2.4",
     "phantomjs": "^1.9.16",
     "proxyquire": "^1.5.0",

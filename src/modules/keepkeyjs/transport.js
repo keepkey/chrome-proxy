@@ -20,13 +20,12 @@
  * END KEEPKEY LICENSE
  */
 
-var jspack = require('jspack').jspack;
 var ByteBuffer = require('bytebuffer');
 var logger = require('../../logger.js');
 var config = require('../../../dist/config.json');
 
 module.exports.MSG_HEADER_START = '##';
-module.exports.MSG_HEADER_LENGTH = jspack.CalcLength('>HL');
+module.exports.MSG_HEADER_LENGTH = 6;
 
 module.exports.DEVICES = config.usbDeviceParameters;
 
@@ -101,12 +100,19 @@ module.exports.create = (function () {
 
     transport.pendingWriteQueue = Promise.resolve();
     transport.write = function (txProtoMsg) {
-      var msgAB = txProtoMsg.encodeAB(),
-        msgBB = ByteBuffer.concat([
-            ByteBuffer.wrap('##'),                                                                        // message start
-            new Uint8Array(jspack.Pack('>HL', [transport.getMsgType(txProtoMsg.$type.name), msgAB.byteLength])), // header
-            msgAB]                                                                                        // message
-        );
+      var msgAB = txProtoMsg.encodeAB();
+      const hash = '#'.charCodeAt(0);
+      const bufferLength = module.exports.MSG_HEADER_START.length +
+        module.exports.MSG_HEADER_LENGTH + msgAB.byteLength;
+
+      var msgBB = new ByteBuffer(bufferLength);
+      msgBB
+        .writeByte(hash)
+        .writeByte(hash)
+        .writeUint16(transport.getMsgType(txProtoMsg.$type.name))
+        .writeUint32(msgAB.byteLength)
+        .append(msgAB)
+        .reset();
 
       logger.debug('adding message to the queue');
       return transport.pendingWriteQueue
@@ -119,7 +125,11 @@ module.exports.create = (function () {
     transport.read = function () {
       return transport._read()
         .then(function (rxMsg) {
-          var message = parseMsg(rxMsg.header.msgType, ByteBuffer.wrap(rxMsg.bufferBB.toArrayBuffer().slice(0, rxMsg.header.msgLength)));
+          var message = parseMsg(rxMsg.header.msgType,
+            ByteBuffer.wrap(
+              rxMsg.bufferBB.toArrayBuffer().slice(0, rxMsg.header.msgLength)
+            )
+          );
           return message;
         });
     };
@@ -171,14 +181,15 @@ module.exports.parseMsgHeader = function (msgBB) {
   }
 
   // unpack header
-  msgHeader = jspack.Unpack('>HL', new Uint8Array(msgBB.toArrayBuffer().slice(0, module.exports.MSG_HEADER_LENGTH)));
+  var msgType = msgBB.readUint16();
+  var msgLength = msgBB.readUint32();
 
   // reset msg bytebuffer
   msgBB.reset();
 
   return {
-    msgType: msgHeader.shift(),
-    msgLength: msgHeader.shift()
+    msgType: msgType,
+    msgLength: msgLength
   };
 };
 
