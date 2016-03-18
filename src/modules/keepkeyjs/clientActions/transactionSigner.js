@@ -264,6 +264,9 @@ transactionSigner.transactionRequestHandler = function transactionRequestHandler
   else if (request.request_type === TXFINISHED) {
     transactionService.sendTransaction(serializedTransaction)
       .then(function () {
+        _.each(transaction.inputs, function(input) {
+          transactionService.setSpent(input.tx_hash, input.tx_output_n);
+        });
         return new Promise(function (resolve) {
           setTimeout(function () {
             transactionService.reloadTransactions()

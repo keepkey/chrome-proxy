@@ -65,6 +65,19 @@ function getOldestUnspentAfter(node, previousTransaction) {
   return _.find(transactionsCopy, inputSelector);
 }
 
+function setSpent(txHash, index) {
+  var node = walletNodeService.nodes[0];
+  var tx = _.find(node.txrefs, {
+    tx_hash: txHash,
+    tx_output_n: index
+  });
+  tx = tx || _.find(node.unconfirmed_txrefs, {
+      tx_hash: txHash,
+      tx_output_n: index
+    });
+  tx.spent = true;
+}
+
 function clearSelectedTransactions() {
   selectedTransactions.length = 0;
 }
@@ -104,5 +117,6 @@ module.exports = {
   sendTransaction: sendTransaction,
   getByTransactionHash: getByTransactionHash,
   getSelectedTransactions: getSelectedTransactions,
-  getHighConfidenceTransactions: getHighConfidenceTransactions
+  getHighConfidenceTransactions: getHighConfidenceTransactions,
+  setSpent: setSpent
 };

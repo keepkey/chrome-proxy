@@ -9,7 +9,6 @@ var args = require('yargs').argv;
 var yaml = require('gulp-yaml');
 var rename = require('gulp-rename');
 var del = require('del');
-var mocha = require('gulp-mocha');
 var replace = require('gulp-replace');
 var pbjs = require('gulp-pbjs');
 var jsoncombine = require('gulp-jsoncombine');
