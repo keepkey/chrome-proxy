@@ -15,9 +15,15 @@ var getPublicKey = function getPublicKey(args) {
   return featuresService.getPromise()
     .then(function (features) {
       if (features.initialized) {
+        if (client.getPublicKeyInProgress) {
+          console.log('ignoring getPublicKey request');
+          return;
+        }
         options.addressN = NodePathHelper.toVector(options.addressN);
 
         console.log('Normalized node path:', options.addressN);
+
+        client.getPublicKeyInProgress = true;
 
         var message = new client.protoBuf.GetPublicKey(
           options.addressN

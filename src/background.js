@@ -227,6 +227,9 @@ function createClientForDevice(deviceTransport) {
       message.proxy_version = manifest.version;
       message.available_firmware_version = firmwareFileMetaData.version;
     }
+    if (type === 'PublicKey') {
+      client.getPublicKeyInProgress = false;
+    }
     sendMessageToUI(type, message);
   });
   client.addListener('ProxyMessage', function onProxyMessage(type, message) {

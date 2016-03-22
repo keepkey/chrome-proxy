@@ -79,6 +79,8 @@ function clientMaker(transport, protoBuf) {
   client.readFirmwareFile = require('./chrome/chromeReadFirmwareFile.js');
   client.crypto = require('./chrome/chromeCrypto.js');
 
+  client.getPublicKeyInProgress = false;
+
   client.initialize = function () {
     return client.writeToDevice(new client.protoBuf.Initialize());
   };
