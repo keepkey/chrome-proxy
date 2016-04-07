@@ -1,6 +1,6 @@
 {
   "name": "keepkey-proxy",
-  "version": "0.3.10",
+  "version": "0.4.0",
   "description": "A communication bridge between the KeepKey Wallet and a KeepKey device",
   "main": "index.js",
   "scripts": {
@@ -13,7 +13,7 @@
     "chai": "^3.0.0",
     "chrome-mock": "0.0.9",
     "del": "^1.1.1",
-    "device-protocol": "git+https://github.com/keepkey/device-protocol.git#v1.0.0",
+    "device-protocol": "git+https://github.com/keepkey/device-protocol.git#v1.0.5",
     "gulp": "^3.8.11",
     "gulp-bump": "^0.3.0",
     "gulp-jshint": "^1.10.0",
