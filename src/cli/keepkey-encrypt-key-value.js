@@ -3,7 +3,7 @@
 var _ = require('lodash');
 var program = require('commander');
 var lib = require('./lib.js');
-var ByteBuffer = require('ByteBuffer');
+var ByteBuffer = require('bytebuffer');
 
 var addressN, key, value;
 
