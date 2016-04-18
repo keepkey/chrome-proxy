@@ -34,7 +34,7 @@ var dispatcher = require('./messageDispatcher');
 var walletNodeService = require('./modules/keepkeyjs/services/walletNodeService.js');
 var feeService = require('./modules/keepkeyjs/services/feeService.js');
 var logger = require('./logger.js');
-var ByteBuffer = require('ByteBuffer');
+var ByteBuffer = require('bytebuffer');
 var firmwareFileMetaData = require('../tmp/keepkey_main.js');
 
 logger.levels(0, 'info');

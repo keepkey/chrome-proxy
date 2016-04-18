@@ -8,7 +8,7 @@ var transactionService = require('../services/transactionService.js');
 var transactions = transactionService.transactions;
 
 var walletNodeService = require('../services/walletNodeService.js');
-var nodePathHelper = require('../nodePathHelper.js');
+var nodePathHelper = require('../NodePathHelper.js');
 
 var client;
 
