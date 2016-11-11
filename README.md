@@ -49,7 +49,7 @@ In order to enter an address_n, you will probably need to escape the single quot
 src/cli/keepkey.js address m/44\'/0\'/1\'/0/0
 ```
 ### Note about entering your PIN in the CLI
-When entering a pin, you need to enter the position of the number on the keypad displayed on yrou KeepKey device. The positions are:
+When entering a pin, you need to enter the position of the number on the keypad displayed on your KeepKey device. The positions are:
 ```
 +---+---+---+
 | 7 | 8 | 9 |
